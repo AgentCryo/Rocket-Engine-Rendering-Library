@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rocket-Engine-Rendering-Library", "Rocket-Engine-Rendering-Library\Rocket-Engine-Rendering-Library.csproj", "{BD9F3B0D-5440-4508-B95B-066C67E2028C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RERL", "RERL\RERL.csproj", "{BD9F3B0D-5440-4508-B95B-066C67E2028C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dev", "Dev\Dev.csproj", "{4894F869-ACEF-459B-98DC-4CCA02CD65A1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,5 +14,9 @@ Global
 		{BD9F3B0D-5440-4508-B95B-066C67E2028C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD9F3B0D-5440-4508-B95B-066C67E2028C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD9F3B0D-5440-4508-B95B-066C67E2028C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4894F869-ACEF-459B-98DC-4CCA02CD65A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4894F869-ACEF-459B-98DC-4CCA02CD65A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4894F869-ACEF-459B-98DC-4CCA02CD65A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4894F869-ACEF-459B-98DC-4CCA02CD65A1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

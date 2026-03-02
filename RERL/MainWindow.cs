@@ -1,28 +1,20 @@
 using System.Drawing;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 
-namespace OpenTK_Lighting_2._0;
+namespace Rocket_Engine_Rendering_Library;
 
-public class MainWindow : GameWindow
+public class MainWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+    : GameWindow(gameWindowSettings, nativeWindowSettings)
 {
-    public MainWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
-        : base(gameWindowSettings, nativeWindowSettings)
-    {
-        
-    }
-
+    
     protected override void OnLoad()
     {
         base.OnLoad();
         
-        GL.ClearColor(Color.Black);
-    }
-
-    protected override void OnUpdateFrame(FrameEventArgs args)
-    {
-        base.OnUpdateFrame(args);
+        GL.ClearColor(Color.Green);
     }
     
     protected override void OnRenderFrame(FrameEventArgs args)

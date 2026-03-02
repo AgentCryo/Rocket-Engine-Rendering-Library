@@ -3,9 +3,10 @@
     <PropertyGroup>
         <OutputType>Library</OutputType>
         <TargetFramework>net9.0</TargetFramework>
-        <RootNamespace>OpenTK_Lighting_2._0</RootNamespace>
+        <RootNamespace>Rocket_Engine_Rendering_Library</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <IsPackable>true</IsPackable>
 
         <PackageId>RERL</PackageId>
         <Version>0.0.1</Version>
@@ -16,6 +17,10 @@
         <RepositoryUrl>https://github.com/AgentCryo/Rocket-Engine-Rendering-Library</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/AgentCryo/Rocket-Engine-Rendering-Library</PackageProjectUrl>
+
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageOutputPath>C:\LocalNuGet\RocketEngine</PackageOutputPath>
+        <PackOutputPath>C:\LocalNuGet\RocketEngine</PackOutputPath>
     </PropertyGroup>
 
     <ItemGroup>

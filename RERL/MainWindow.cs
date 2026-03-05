@@ -1,10 +1,9 @@
 using System.Drawing;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 
-namespace Rocket_Engine_Rendering_Library;
+namespace RERL;
 
 public class MainWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
     : GameWindow(gameWindowSettings, nativeWindowSettings)
@@ -16,7 +15,7 @@ public class MainWindow(GameWindowSettings gameWindowSettings, NativeWindowSetti
         
         var assembly = AppDomain.CurrentDomain .GetAssemblies() .FirstOrDefault(a => a.GetName().Name == "RERL");
 
-        Console.WriteLine(assembly != null ? "Library Found" : "Library not Found");
+        Console.WriteLine(assembly != null ? $"Library Found: {assembly.FullName}" : "Library not Found");
 
         GL.ClearColor(Color.Green);
     }

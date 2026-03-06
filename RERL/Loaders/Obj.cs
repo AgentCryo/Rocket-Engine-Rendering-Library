@@ -1,6 +1,6 @@
 namespace RERL.Loaders;
 
-public class Shader
+public class Obj
 {
     
 }

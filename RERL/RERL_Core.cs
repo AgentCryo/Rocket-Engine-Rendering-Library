@@ -60,6 +60,7 @@ public static class RERL_Core
 
     static MeshRender _meshObject = new();
     static MeshRender _icosahedron = new();
+    static MeshRender _sphere = new();
     
     #endregion
     
@@ -86,6 +87,11 @@ public static class RERL_Core
         _icosahedron.AttachMesh(mesh);
         _icosahedron.BuildMeshBuffers();
 
+        mesh = MeshLoader.ParseMesh(MeshLoader.UVSphere);
+        
+        _sphere.AttachMesh(mesh);
+        _sphere.BuildMeshBuffers();
+
         _tempShader = new Shader().AttachShader("./Shaders/Default/default.vert", "./Shaders/Default/default.frag");
 
         #endregion
@@ -99,9 +105,9 @@ public static class RERL_Core
 
         _time += (float)args.Time;
         
-        camera.SetPosition(new Vector3(float.Sin(_time/2) * 8, float.Cos(_time/2) * 5, 15));
-        camera.SetRotation(new Vector3(0, 0, 0));
-        camera.UpdateViewMatrix();
+        //camera.SetPosition(new Vector3(float.Sin(_time/2) * 8, float.Cos(_time/2) * 5, 15));
+        //camera.SetRotation(new Vector3(0, 0, 0));
+        //camera.UpdateViewMatrix();
         
         _tempShader.Use();
         _tempShader.SetUniform("uView", camera.View);
@@ -109,6 +115,7 @@ public static class RERL_Core
         
         _meshObject.Render(_tempShader, new RenderTransform(Quaternion.FromAxisAngle(new Vector3(0, 1, 0), _time)));
         _icosahedron.Render(_tempShader, new RenderTransform(new Vector3(3, 0, 0), Quaternion.FromAxisAngle(new Vector3(0, 1, 0), _time)));
+        _sphere.Render(_tempShader, new RenderTransform(new Vector3(-3, 0, 0), Quaternion.FromAxisAngle(new Vector3(0, 1, 0), _time)));
         
         #endregion
         

@@ -5,7 +5,7 @@ namespace RERL.Objects;
 public class Camera
 {
     Vector3 _position = new();
-    Vector3 _rotation = new();
+    Quaternion _rotation = new();
     
     Matrix4 _view;
     Matrix4 _projection;
@@ -25,17 +25,12 @@ public class Camera
 
     public void UpdateViewMatrix()
     {
-        Quaternion q = Quaternion.FromEulerAngles(
-            float.DegreesToRadians(_rotation.X),
-            float.DegreesToRadians(_rotation.Y),
-             float.DegreesToRadians(_rotation.Z));
-
-        Vector3 forward = q * -Vector3.UnitZ;
-        Vector3 up = q * Vector3.UnitY;
+        Vector3 forward = _rotation * -Vector3.UnitZ;
+        Vector3 up = _rotation * Vector3.UnitY;
 
         _view = Matrix4.LookAt(_position, _position + forward, up);
     }
     
     public void SetPosition(Vector3 position) => _position = position;
-    public void SetRotation(Vector3 rotation) => _rotation = rotation;
+    public void SetRotation(Quaternion rotation) => _rotation = rotation;
 }

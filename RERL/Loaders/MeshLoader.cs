@@ -4,6 +4,9 @@ namespace RERL.Loaders;
 
 public static class MeshLoader
 {
+    public const string Cube = @"./Models/Cube.obj";
+    public const string Icosahedron = @"./Models/Icosahedron.obj";
+    public const string UVSphere = @"./Models/UVSphere.obj";
     public static RERL_Core.Mesh ParseMesh(string filename)
     {
         if (filename.EndsWith(".obj")) {

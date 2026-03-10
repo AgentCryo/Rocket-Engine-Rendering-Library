@@ -14,6 +14,8 @@ A standalone rendering library built for Rocket Engine.
 **Planned**
 - Automatic RCS detection for rendering-focused components  
   (e.g., `MeshRender`, `Camera`).
+- Transparency/Translucency.
+- Voxel Global Illumination
 
 ## RCS — Rocket Control System v0.0.0
 RCS is the Entity Component System (ECS) used by Rocket Engine.

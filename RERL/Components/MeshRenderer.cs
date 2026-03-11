@@ -1,11 +1,22 @@
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using RCS;
+using RCS.Components;
 
 namespace RERL.Objects;
 
-public class MeshRenderer
+public class MeshRenderer : IComponent
 {
+    public Entity Owner { get; set; } 
+    public bool AutoRegister { get; set; } = true;
+
+    public MeshRenderer SetAutoRegister(bool autoRegister)
+    {
+        AutoRegister = autoRegister;
+        return this;
+    }
+    
     RERL_Core.Mesh? _mesh;
     Shader? _shader;
     int _vao = -1, _vbo = -1, _ibo = -1;
@@ -27,6 +38,10 @@ public class MeshRenderer
     public RERL_Core.Mesh? GetMesh() => _mesh!;
     public Shader? GetShader() => _shader;
 
+    public void OnAdd()
+    {
+        if(AutoRegister) RERL_Core.RegisterRenderable(this);
+    }
 
     /// <summary>
     /// The mesh will not update if this is not called.
@@ -64,18 +79,14 @@ public class MeshRenderer
         return true;
     }
     
-    public void Render(RERL_Core.RenderTransform transform, int instanceCount = 1)
+    public void Render(int instanceCount = 1)
     {
         if (_mesh == null) throw new Exception("ERR: Mesh is null.");
         if (_shader == null) throw new Exception("ERR: Shader is null.");
         if(!_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
         
-        var model =
-            Matrix4.CreateScale(transform.Scale) *
-            Matrix4.CreateFromQuaternion(transform.Rotation) *
-            Matrix4.CreateTranslation(transform.Position);
-        
-        _shader.ApplyUniform("uModel", model);
+        if(!Owner.TryGetComponent(out Transform? transform) || transform == null) throw new Exception("ERR: MeshRender needs parent object to own a Transform.");
+        _shader.ApplyUniform("uModel", transform.WorldMatrix);
 
         GL.BindVertexArray(_vao);
         GL.DrawElementsInstanced(PrimitiveType.Triangles,  ((RERL_Core.Mesh)_mesh).Indices.Length, DrawElementsType.UnsignedInt, 0, instanceCount);
@@ -89,4 +100,7 @@ public class MeshRenderer
 
         _vao = _vbo = _ibo = 0;
     }
+
+    public void Load() {}
+    public void Update(float deltaTime) {}
 }

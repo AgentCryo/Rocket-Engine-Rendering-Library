@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
+using RCS;
 using RERL;
 using RERL.Loaders;
 using RERL.Objects;
@@ -20,14 +21,10 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
     static Shader _fadeTest;
     static PostProcess _postProcess = new();
     
-    static MeshRenderer _cube;
-    static MeshRenderer _icosahedron;
-    static MeshRenderer _sphere;
-
     protected override void OnLoad()
     {
         base.OnLoad();
-        _camera.SetProjectionFovXInDegrees(100, Size.X / (float)Size.Y, 0.1f, 100f);
+        _camera.SetProjectionFovXInDegrees(90, Size.X / (float)Size.Y, 0.1f, 100f);
         CursorState = CursorState.Grabbed;
         _cameraController.InitializeCameraController(_camera, KeyboardState, MouseState, this);
         
@@ -42,20 +39,31 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
         RERL_Core.SetCamera(_camera);
         RERL_Core.SetGameWindow(this);
         RERL_Core.Load();
-
-        _cube = new MeshRenderer().AttachMesh(MeshLoader.CubeMesh).AttachShader(_fadeTest);
         
-        _icosahedron = new MeshRenderer().AttachMesh(MeshLoader.IcosahedronMesh).AttachShader(RERL_Core.GetDefaultShader());
-        RERL_Core.RegisterRenderable(_icosahedron);
-
-        _sphere = new MeshRenderer().AttachMesh(MeshLoader.UVSphereMesh).AttachShader(RERL_Core.GetDefaultShader());
-        RERL_Core.RegisterRenderable(_sphere);
-        RERL_Core.RegisterRenderable(_cube);
+        RCS_Core.AddScene(
+            new RCS_Core.Scene("Main")
+                .AddEntity(new Entity("Cube")
+                    .AddComponent(new MeshRenderer().SetAutoRegister(false).AttachMesh(MeshLoader.CubeMesh).AttachShader(_fadeTest))
+                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 0.0f, 0))))
+                
+                .AddEntity(new Entity("Icosahedron")
+                    .AddComponent(new MeshRenderer().SetAutoRegister(false).AttachMesh(MeshLoader.IcosahedronMesh).AttachShader(RERL_Core.GetDefaultShader()))
+                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 2.2f, 0))))
+                
+                .AddEntity(new Entity("Sphere")
+                    .AddComponent(new MeshRenderer().AttachMesh(MeshLoader.UVSphereMesh).AttachShader(RERL_Core.GetDefaultShader()))
+                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 0.0f, 0))))
+            );
+        RCS_Core.SetActiveScene("Main");
+        RERL_Core.RegisterRenderable(RCS_Core.GetActiveScene().GetEntity("Icosahedron").GetComponent<MeshRenderer>());  //Get Component Examples
+        RERL_Core.RegisterRenderable(RCS_Core.GetActiveScene().GetComponentFromEntity<MeshRenderer>("Cube"));           //Get Component Examples
+        RCS_Core.LoadActiveScene();
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         _cameraController.UpdateInput(args.Time);
+        RCS_Core.UpdateActiveScene(args.Time);
         base.OnUpdateFrame(args);
     }
 

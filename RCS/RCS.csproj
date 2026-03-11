@@ -22,4 +22,8 @@
         <PackageOutputPath>C:\LocalNuGet\RocketEngine</PackageOutputPath>
         <PackOutputPath>C:\LocalNuGet\RocketEngine</PackOutputPath>
     </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+    </ItemGroup>
 </Project>

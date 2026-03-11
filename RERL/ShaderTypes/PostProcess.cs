@@ -29,23 +29,7 @@ public class PostProcess
         
         return this;
     }
-
-    //void BindFramebuffer()
-    //{
-    //    _gbuffer.Clear();
-    //    
-    //    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _gbuffer.GetFBO());
-    //    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-    //        TextureTarget.Texture2D, _gbuffer.Color, 0);
-    //    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1,
-    //        TextureTarget.Texture2D, _gbuffer.Normal, 0);
-    //    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
-    //        TextureTarget.Texture2D, _gbuffer.Depth, 0);
-    //    
-    //    DrawBuffersEnum[] drawBuffers = [DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1];
-    //    GL.DrawBuffers(drawBuffers.Length, drawBuffers);
-    //}
-
+    
     public RERL_Core.GBuffer RenderPostProcess(RERL_Core.GBuffer gbuffer, int VAO, bool renderToScreen)
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, _gbuffer.GetFBO());

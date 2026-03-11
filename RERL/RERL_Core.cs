@@ -29,24 +29,24 @@ public static class RERL_Core
         public uint[] Indices = indices;
     }
 
-    public struct RenderTransform(Vector3 position, Quaternion rotation, Vector3 scale)
-    {
-        public Vector3 Position = position;
-        public Quaternion Rotation = rotation;
-        public Vector3 Scale = scale;
-        
-        public static RenderTransform Identity =>
-            new RenderTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
+    //public struct RenderTransform(Vector3 position, Quaternion rotation, Vector3 scale)
+    //{
+    //    public Vector3 Position = position;
+    //    public Quaternion Rotation = rotation;
+    //    public Vector3 Scale = scale;
+    //    
+    //    public static RenderTransform Identity =>
+    //        new RenderTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
 
-        public RenderTransform(Vector3 position)
-            : this(position, Quaternion.Identity, Vector3.One) { }
+    //    public RenderTransform(Vector3 position)
+    //        : this(position, Quaternion.Identity, Vector3.One) { }
 
-        public RenderTransform(Quaternion rotation)
-            : this(Vector3.Zero, rotation, Vector3.One) { }
+    //    public RenderTransform(Quaternion rotation)
+    //        : this(Vector3.Zero, rotation, Vector3.One) { }
 
-        public RenderTransform(Vector3 position, Quaternion rotation)
-            : this(position, rotation, Vector3.One) { }
-    }
+    //    public RenderTransform(Vector3 position, Quaternion rotation)
+    //        : this(position, rotation, Vector3.One) { }
+    //}
 
     public struct GBuffer
     {
@@ -116,10 +116,10 @@ public static class RERL_Core
 
     static int _postProcessingQuad_VAO;
     static GBuffer _geometryFrame;
-    static List<Shader> _shaders = [];
-    static List<PostProcess> _postProcesses = [];
-    static Dictionary<int, List<MeshRenderer>> _shaderBatchRendering = new();
-    static List<MeshRenderer> _renderables = [];
+    static readonly List<Shader> Shaders = [];
+    static readonly List<PostProcess> PostProcesses = [];
+    static readonly Dictionary<int, List<MeshRenderer>> ShaderBatchRendering = new();
+    static readonly List<MeshRenderer> Renderables = [];
     static Camera _camera;
     static GameWindow _window;
     
@@ -142,7 +142,7 @@ public static class RERL_Core
         
         _defaultShader = new Shader().AttachShader("./Shaders/Default/default.vert", "./Shaders/Default/default.frag");
         RegisterShader(_defaultShader);
-        foreach (var shader in _shaders) {
+        foreach (var shader in Shaders) {
             shader.RegisterAutoUniform("uView", () => _camera.GetView());
             shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
         }
@@ -163,11 +163,11 @@ public static class RERL_Core
     {
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, _postProcesses.Count != 0 ? _geometryFrame.GetFBO() : 0);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, PostProcesses.Count != 0 ? _geometryFrame.GetFBO() : 0);
         _geometryFrame.Clear();
         
         //Render all meshes grouped by shader to minimize shader switches.
-        foreach (var kpv in _shaderBatchRendering) {
+        foreach (var kpv in ShaderBatchRendering) {
             //int shaderHandle = kpv.Key;
             List<MeshRenderer> renderables = kpv.Value;
             
@@ -177,14 +177,16 @@ public static class RERL_Core
 
             foreach (var mr in renderables) {
                 //Temp Transform Identity, will be replaced with actual transforms later.
-                mr.Render(RenderTransform.Identity);
+                //mr.Render(RenderTransform.Identity);
+                //New one
+                mr.Render();
             }
         }
         
-        if (_postProcesses.Count != 0) {
+        if (PostProcesses.Count != 0) {
             GBuffer input = _geometryFrame;
-            for (int p = 0; p < _postProcesses.Count; p++) {
-                input = _postProcesses[p].RenderPostProcess(input, _postProcessingQuad_VAO, (p == _postProcesses.Count - 1));
+            for (int p = 0; p < PostProcesses.Count; p++) {
+                input = PostProcesses[p].RenderPostProcess(input, _postProcessingQuad_VAO, (p == PostProcesses.Count - 1));
             }
         }
         
@@ -193,43 +195,43 @@ public static class RERL_Core
     
     static void RegisterToShaderBatch(MeshRenderer renderable)
     {
-        int handle = renderable.GetShader().GetHandle();
-        if (!_shaderBatchRendering.TryGetValue(handle, out var list))
+        int handle = renderable.GetShader()!.GetHandle();
+        if (!ShaderBatchRendering.TryGetValue(handle, out var list))
         {
             list = [];
-            _shaderBatchRendering[handle] = list;
+            ShaderBatchRendering[handle] = list;
         }
         list.Add(renderable);
     }
 
     public static void RegisterRenderable(MeshRenderer renderable)
     {
-        _renderables.Add(renderable);
+        Renderables.Add(renderable);
         RegisterToShaderBatch(renderable);
     }
 
     public static void UnregisterRenderable(MeshRenderer renderable)
     {
-        _renderables.Remove(renderable);
+        Renderables.Remove(renderable);
 
-        int handle = renderable.GetShader().GetHandle();
-        if (_shaderBatchRendering.TryGetValue(handle, out var list))
+        int handle = renderable.GetShader()!.GetHandle();
+        if (ShaderBatchRendering.TryGetValue(handle, out var list))
         {
             list.Remove(renderable);
             if (list.Count == 0)
-                _shaderBatchRendering.Remove(handle);
+                ShaderBatchRendering.Remove(handle);
         }
     }
 
-    public static void RegisterPostProcess(PostProcess postProcess) => _postProcesses.Add(postProcess);
-    public static void UnregisterPostProcess(PostProcess postProcess) => _postProcesses.Remove(postProcess);
+    public static void RegisterPostProcess(PostProcess postProcess) => PostProcesses.Add(postProcess);
+    public static void UnregisterPostProcess(PostProcess postProcess) => PostProcesses.Remove(postProcess);
     
     public static void RegisterShader(Shader shader)
     {
-        _shaders.Add(shader);
+        Shaders.Add(shader);
         shader.RegisterAutoUniform("uView", () => _camera.GetView());
         shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
     }
 
-    public static void UnregisterShader(Shader shader) => _shaders.Remove(shader);
+    public static void UnregisterShader(Shader shader) => Shaders.Remove(shader);
 }

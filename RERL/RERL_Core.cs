@@ -110,19 +110,6 @@ public static class RERL_Core
         }
 
     }
-
-    #region Temp    
-    
-
-    static float _time;
-
-    static MeshRenderer _cube = new();
-    static MeshRenderer _icosahedron = new();
-    static MeshRenderer _sphere = new();
-    
-    static PostProcess _postProcess = new();
-    
-    #endregion
     
     static Shader? _defaultShader;
     public static Shader GetDefaultShader() => _defaultShader!;

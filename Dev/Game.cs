@@ -18,6 +18,7 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
     CameraController _cameraController = new CameraController();
     
     static Shader _fadeTest;
+    static PostProcess _postProcess = new();
     
     static MeshRenderer _cube;
     static MeshRenderer _icosahedron;
@@ -32,6 +33,11 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
         
         _fadeTest = new Shader().AttachShader(Shader.DefaultVert, "./Shaders/FadeTest/fadeTest.frag");
         RERL_Core.RegisterShader(_fadeTest);
+        
+        _postProcess = new PostProcess().AttachPostProcessShader("./Shaders/MergerSponge/mergerSponge.frag", this);
+        _postProcess.RegisterAutoUniform("cameraPos", () => _cameraController.GetPosition());
+        _postProcess.RegisterAutoUniform("cameraRot", () => _cameraController.GetOrientation());
+        RERL_Core.RegisterPostProcess(_postProcess);
         
         RERL_Core.SetCamera(_camera);
         RERL_Core.SetGameWindow(this);

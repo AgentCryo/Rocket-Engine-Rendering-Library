@@ -8,8 +8,10 @@ namespace Dev;
 
 public class CameraController
 {
-    Vector3 _position;
+    public Vector3 _position;
+    public Vector3 GetPosition() => _position;
     Quaternion _orientation = Quaternion.Identity;
+    public Quaternion GetOrientation() => _orientation;
     float _pitch;
     float _yaw;
 
@@ -22,7 +24,7 @@ public class CameraController
     KeyboardState _keyboardState;
     MouseState _mouseState;
     GameWindow _window;
-
+    
     public void InitializeCameraController(Camera camera, KeyboardState input, MouseState mouse, GameWindow window)
     {
         _camera = camera;

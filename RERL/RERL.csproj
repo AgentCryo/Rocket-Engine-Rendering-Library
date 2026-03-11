@@ -37,6 +37,16 @@
         <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.9.4" />
     </ItemGroup>
 
+    <!-- Use ProjectReference during normal development -->
+    <ItemGroup Condition="'$(IsPacking)' != 'true'">
+        <ProjectReference Include="..\RCS\RCS.csproj" />
+    </ItemGroup>
+
+    <!-- Use PackageReference ONLY when packing -->
+    <ItemGroup Condition="'$(IsPacking)' == 'true'">
+        <PackageReference Include="RCS" Version="0.0.1" />
+    </ItemGroup>
+
     <ItemGroup>
         <Content Include="Shaders\**\*">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -49,5 +59,4 @@
             <PackagePath>contentFiles\any\any\Models\</PackagePath>
         </Content>
     </ItemGroup>
-
 </Project>

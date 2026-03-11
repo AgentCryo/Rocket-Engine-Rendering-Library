@@ -126,6 +126,9 @@ public class Shader
 
             case Matrix4 m4:
                 GL.UniformMatrix4(location, false, ref m4); break;
+            
+            case Quaternion q:
+                GL.Uniform4(location, new Vector4(q.X, q.Y, q.Z, q.W)); break;
 
             default:
                 return silence

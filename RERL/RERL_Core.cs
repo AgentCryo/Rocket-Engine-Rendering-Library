@@ -129,14 +129,20 @@ public static class RERL_Core
 
     static int _postProcessingQuad_VAO;
     static GBuffer _geometryFrame;
+    static List<Shader> _shaders = [];
     static List<PostProcess> _postProcesses = [];
     static Dictionary<int, List<MeshRenderer>> _shaderBatchRendering = new();
     static List<MeshRenderer> _renderables = [];
+    static Camera _camera;
+    static GameWindow _window;
+    
+    public static void SetCamera(Camera camera) => _camera = camera;
+    public static void SetGameWindow(GameWindow window) => _window = window;
     
     /// <summary>
     /// Call this before adding any renderables.
     /// </summary>
-    public static void Load(Camera camera, GameWindow window)
+    public static void Load()
     {
         var assembly = AppDomain.CurrentDomain .GetAssemblies() .FirstOrDefault(a => a.GetName().Name == "RERL");
 
@@ -144,12 +150,17 @@ public static class RERL_Core
 
         GL.ClearColor(Color.FromArgb(255, 20,25,35));
         GL.Enable(EnableCap.DepthTest);
+        GL.Enable(EnableCap.Blend);
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
         
         _defaultShader = new Shader().AttachShader("./Shaders/Default/default.vert", "./Shaders/Default/default.frag");
-        _defaultShader.RegisterAutoUniform("uView", () => camera.GetView());
-        _defaultShader.RegisterAutoUniform("uProjection", () => camera.GetProjection());
+        RegisterShader(_defaultShader);
+        foreach (var shader in _shaders) {
+            shader.RegisterAutoUniform("uView", () => _camera.GetView());
+            shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
+        }
 
-        _geometryFrame = new GBuffer(window.Size);
+        _geometryFrame = new GBuffer(_window.Size);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, _geometryFrame.GetFBO());
         GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, _geometryFrame.Color, 0);
         GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, _geometryFrame.Normal, 0);
@@ -161,7 +172,7 @@ public static class RERL_Core
         _postProcessingQuad_VAO = GL.GenVertexArray();
     }
     
-    public static void RenderFrame(GameWindow gameWindow, Camera camera, FrameEventArgs args)
+    public static void RenderFrame(FrameEventArgs args)
     {
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
@@ -173,7 +184,7 @@ public static class RERL_Core
             //int shaderHandle = kpv.Key;
             List<MeshRenderer> renderables = kpv.Value;
             
-            Shader shader = renderables[0].GetShader();
+            Shader shader = renderables[0].GetShader()!;
             shader.Use();
             shader.ApplyAutoUniforms();
 
@@ -190,7 +201,7 @@ public static class RERL_Core
             }
         }
         
-        gameWindow.SwapBuffers();
+        _window.SwapBuffers();
     }
     
     static void RegisterToShaderBatch(MeshRenderer renderable)
@@ -225,4 +236,13 @@ public static class RERL_Core
 
     public static void RegisterPostProcess(PostProcess postProcess) => _postProcesses.Add(postProcess);
     public static void UnregisterPostProcess(PostProcess postProcess) => _postProcesses.Remove(postProcess);
+    
+    public static void RegisterShader(Shader shader)
+    {
+        _shaders.Add(shader);
+        shader.RegisterAutoUniform("uView", () => _camera.GetView());
+        shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
+    }
+
+    public static void UnregisterShader(Shader shader) => _shaders.Remove(shader);
 }

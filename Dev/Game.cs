@@ -17,6 +17,8 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
     Camera _camera = new Camera();
     CameraController _cameraController = new CameraController();
     
+    static Shader _fadeTest;
+    
     static MeshRenderer _cube;
     static MeshRenderer _icosahedron;
     static MeshRenderer _sphere;
@@ -28,16 +30,21 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
         CursorState = CursorState.Grabbed;
         _cameraController.InitializeCameraController(_camera, KeyboardState, MouseState, this);
         
-        RERL_Core.Load(_camera, this);
+        _fadeTest = new Shader().AttachShader(Shader.DefaultVert, "./Shaders/FadeTest/fadeTest.frag");
+        RERL_Core.RegisterShader(_fadeTest);
+        
+        RERL_Core.SetCamera(_camera);
+        RERL_Core.SetGameWindow(this);
+        RERL_Core.Load();
 
-        _cube = new MeshRenderer().AttachMesh(MeshLoader.CubeMesh).AttachShader(RERL_Core.GetDefaultShader());
-        RERL_Core.RegisterRenderable(_cube);
-
+        _cube = new MeshRenderer().AttachMesh(MeshLoader.CubeMesh).AttachShader(_fadeTest);
+        
         _icosahedron = new MeshRenderer().AttachMesh(MeshLoader.IcosahedronMesh).AttachShader(RERL_Core.GetDefaultShader());
         RERL_Core.RegisterRenderable(_icosahedron);
 
         _sphere = new MeshRenderer().AttachMesh(MeshLoader.UVSphereMesh).AttachShader(RERL_Core.GetDefaultShader());
         RERL_Core.RegisterRenderable(_sphere);
+        RERL_Core.RegisterRenderable(_cube);
     }
 
     protected override void OnUpdateFrame(FrameEventArgs args)
@@ -49,7 +56,7 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         base.OnRenderFrame(args);
-        RERL_Core.RenderFrame(this, _camera, args);
+        RERL_Core.RenderFrame(args);
     }
     
     protected override void OnResize(ResizeEventArgs e)

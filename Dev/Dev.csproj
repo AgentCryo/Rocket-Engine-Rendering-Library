@@ -10,4 +10,17 @@
     <ItemGroup>
         <ProjectReference Include="..\RERL\RERL.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="Shaders\**\*">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <Pack>true</Pack>
+            <PackagePath>contentFiles\any\any\Shaders\</PackagePath>
+        </Content>
+        <Content Include="Models\**\*">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <Pack>true</Pack>
+            <PackagePath>contentFiles\any\any\Models\</PackagePath>
+        </Content>
+    </ItemGroup>
 </Project>

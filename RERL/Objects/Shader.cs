@@ -5,6 +5,9 @@ namespace RERL.Objects;
 
 public class Shader
 {
+    public const string DefaultVert = "./Shaders/Default/default.vert";
+    public const string DefaultFrag = "./Shaders/Default/default.frag";
+    
     int Handle { get; set; }
     readonly Dictionary<string, int> _uniformCache = new();
     readonly Dictionary<string, Func<object?>> _autoUniforms = new();

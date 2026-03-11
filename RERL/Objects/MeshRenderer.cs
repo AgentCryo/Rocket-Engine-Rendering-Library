@@ -10,7 +10,7 @@ public class MeshRenderer
     Shader? _shader;
     int _vao = -1, _vbo = -1, _ibo = -1;
     bool _buffersDirty = false;
-
+        
     public MeshRenderer AttachMesh(RERL_Core.Mesh mesh)
     {
         _mesh = mesh;

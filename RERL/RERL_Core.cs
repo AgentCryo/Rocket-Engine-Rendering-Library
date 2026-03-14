@@ -41,7 +41,7 @@ public static class RERL_Core
 
     public struct GBuffer
     {
-        int Color, Normal, Depth;
+        public int Color, Normal, Depth;
         public int FBO;
         public int GetColor() => Color;
         public int GetNormal() => Normal;

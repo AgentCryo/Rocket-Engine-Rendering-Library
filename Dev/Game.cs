@@ -49,7 +49,6 @@ public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings na
                 
                 .AddEntity(new Entity("Icosahedron")
                     .AddComponent(new MeshRenderer().SetAutoRegister(false).AttachMesh(MeshLoader.IcosahedronMesh).AttachShader(RERL_Core.GetDefaultShader()))
-                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 2.2f, 0)))
                     .AddComponent(new PongComponent(5, 5)))
                 
                 .AddEntity(new Entity("Sphere")

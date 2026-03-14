@@ -12,9 +12,16 @@ using RERL.Objects;
 
 namespace RERL;
 
+/// <summary>
+/// The core rendering system for the Rocket Engine Rendering Layer (RERL).
+/// Handles shader registration, mesh batching, G‑Buffer creation,
+/// post‑processing, and the main render loop.
+/// </summary>
 public static class RERL_Core
 {
-    
+    /// <summary>
+    /// Represents a single vertex containing position, normal, and UV coordinates.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct Vertex(Vector3 position, Vector3 normal, Vector2 uv)
     {
@@ -23,40 +30,27 @@ public static class RERL_Core
         public Vector2 UV = uv;
     }
 
+    /// <summary>
+    /// Represents a mesh consisting of vertices and indices.
+    /// </summary>
     public struct Mesh(Vertex[] vertices, uint[] indices)
     {
         public Vertex[] Vertices = vertices;
         public uint[] Indices = indices;
     }
 
-    //public struct RenderTransform(Vector3 position, Quaternion rotation, Vector3 scale)
-    //{
-    //    public Vector3 Position = position;
-    //    public Quaternion Rotation = rotation;
-    //    public Vector3 Scale = scale;
-    //    
-    //    public static RenderTransform Identity =>
-    //        new RenderTransform(Vector3.Zero, Quaternion.Identity, Vector3.One);
-
-    //    public RenderTransform(Vector3 position)
-    //        : this(position, Quaternion.Identity, Vector3.One) { }
-
-    //    public RenderTransform(Quaternion rotation)
-    //        : this(Vector3.Zero, rotation, Vector3.One) { }
-
-    //    public RenderTransform(Vector3 position, Quaternion rotation)
-    //        : this(position, rotation, Vector3.One) { }
-    //}
-
     public struct GBuffer
     {
-        public int Color, Normal, Depth;
+        int Color, Normal, Depth;
         public int FBO;
         public int GetColor() => Color;
         public int GetNormal() => Normal;
         public int GetDepth() => Depth;
         public int GetFBO() => FBO;
         
+        /// <summary>
+        /// Creates a new G‑Buffer with color, normal, and depth attachments sized to the screen.
+        /// </summary>
         public GBuffer(Vector2i screenSize)
         {
             FBO = GL.GenFramebuffer();
@@ -93,6 +87,9 @@ public static class RERL_Core
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
         }
 
+        /// <summary>
+        /// Clears all G‑Buffer attachments (color, normal, depth).
+        /// </summary>
         public void Clear()
         {
             float[] clear = new float[4];
@@ -127,7 +124,8 @@ public static class RERL_Core
     public static void SetGameWindow(GameWindow window) => _window = window;
     
     /// <summary>
-    /// Call this before adding any renderables.
+    /// Initializes the rendering system, loads shaders, creates the G‑Buffer,
+    /// and prepares OpenGL state. Must be called before adding renderables.
     /// </summary>
     public static void Load()
     {
@@ -159,6 +157,10 @@ public static class RERL_Core
         _postProcessingQuad_VAO = GL.GenVertexArray();
     }
     
+    /// <summary>
+    /// Renders a single frame, including geometry pass, post‑processing,
+    /// and buffer swapping.
+    /// </summary>
     public static void RenderFrame(FrameEventArgs args)
     {
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
@@ -204,12 +206,18 @@ public static class RERL_Core
         list.Add(renderable);
     }
 
+    /// <summary>
+    /// Registers a renderable mesh renderer for batched rendering.
+    /// </summary>
     public static void RegisterRenderable(MeshRenderer renderable)
     {
         Renderables.Add(renderable);
         RegisterToShaderBatch(renderable);
     }
 
+    /// <summary>
+    /// Removes a renderable from the rendering system.
+    /// </summary>
     public static void UnregisterRenderable(MeshRenderer renderable)
     {
         Renderables.Remove(renderable);
@@ -223,9 +231,18 @@ public static class RERL_Core
         }
     }
 
+    /// <summary>
+    /// Registers a post‑processing effect to be applied after geometry rendering.
+    /// </summary>
     public static void RegisterPostProcess(PostProcess postProcess) => PostProcesses.Add(postProcess);
+    /// <summary>
+    /// Removes a post‑processing effect from the pipeline.
+    /// </summary>
     public static void UnregisterPostProcess(PostProcess postProcess) => PostProcesses.Remove(postProcess);
     
+    /// <summary>
+    /// Registers a shader with the rendering system and assigns automatic uniforms.
+    /// </summary>
     public static void RegisterShader(Shader shader)
     {
         Shaders.Add(shader);
@@ -233,5 +250,8 @@ public static class RERL_Core
         shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
     }
 
+    /// <summary>
+    /// Removes a shader from the rendering system.
+    /// </summary>
     public static void UnregisterShader(Shader shader) => Shaders.Remove(shader);
 }

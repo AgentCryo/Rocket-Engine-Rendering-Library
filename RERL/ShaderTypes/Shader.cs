@@ -3,6 +3,10 @@ using OpenTK.Mathematics;
 
 namespace RERL.Objects;
 
+/// <summary>
+/// Represents an OpenGL shader program, supporting compilation, linking,
+/// uniform uploads, and automatic uniforms.
+/// </summary>
 public class Shader
 {
     public const string DefaultVert = "./Shaders/Default/default.vert";
@@ -62,7 +66,6 @@ public class Shader
         }
     }
 
-
     void CheckLink(int program)
     {
         GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int status);
@@ -99,37 +102,19 @@ public class Shader
         if (location == -1 && silence) return false;
 
         switch (value) {
-            case float f:
-                GL.Uniform1(location, f); break;
-
-            case int i:
-                GL.Uniform1(location, i); break;
-
-            case bool b:
-                GL.Uniform1(location, b ? 1 : 0); break;
-
-            case Vector2 v2:
-                GL.Uniform2(location, v2); break;
-
-            case Vector3 v3:
-                GL.Uniform3(location, v3); break;
-
+            case float f: GL.Uniform1(location, f); break;
+            case int i: GL.Uniform1(location, i); break;
+            case bool b: GL.Uniform1(location, b ? 1 : 0); break;
+            case Vector2 v2: GL.Uniform2(location, v2); break;
+            case Vector3 v3: GL.Uniform3(location, v3); break;
             case Vector3[] v3Arr:
                 if (v3Arr.Length == 0)
                     return silence ? false : throw new Exception($"ERR: Cannot set empty Vector3[] uniform '{name}'.");
-
                 GL.Uniform3(location, v3Arr.Length, ref v3Arr[0].X);
                 break;
-
-            case Vector4 v4:
-                GL.Uniform4(location, v4); break;
-
-            case Matrix4 m4:
-                GL.UniformMatrix4(location, false, ref m4); break;
-            
-            case Quaternion q:
-                GL.Uniform4(location, new Vector4(q.X, q.Y, q.Z, q.W)); break;
-
+            case Vector4 v4: GL.Uniform4(location, v4); break;
+            case Matrix4 m4: GL.UniformMatrix4(location, false, ref m4); break;
+            case Quaternion q: GL.Uniform4(location, new Vector4(q.X, q.Y, q.Z, q.W)); break;
             default:
                 return silence
                     ? false
@@ -141,11 +126,9 @@ public class Shader
 
     /// <summary>
     /// Registers a uniform whose value is supplied automatically each frame.
-    /// The provided getter function is invoked whenever <see cref="ApplyAutoUniforms"/>
-    /// is called.
     /// </summary>
     /// <param name="name">The uniform name in the GLSL shader.</param>
-    /// <param name="getter">A function that returns the value to assign.</param>
+    /// <param name="getter">A function returning the value to assign.</param>
     /// <param name="silence">If true, missing uniforms are ignored.</param>
     /// <returns>True if the uniform was registered successfully.</returns>
     public bool RegisterAutoUniform(string name, Func<object?> getter, bool silence = false)
@@ -161,13 +144,11 @@ public class Shader
     }
 
     /// <summary>
-    /// Applies all automatically registered uniforms by invoking their getter
-    /// functions and uploading the resulting values to the GPU.
+    /// Applies all automatically registered uniforms.
     /// </summary>
     public void ApplyAutoUniforms()
     {
-        foreach (KeyValuePair<string, Func<object?>> kvp in _autoUniforms) {
+        foreach (var kvp in _autoUniforms)
             ApplyUniform(kvp.Key, kvp.Value?.Invoke());
-        }
     }
 }

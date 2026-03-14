@@ -6,9 +6,13 @@ using RCS.Components;
 
 namespace RERL.Objects;
 
+/// <summary>
+/// A component that renders a mesh using a shader.
+/// Handles VAO/VBO/IBO creation, uniform setup, and instanced rendering.
+/// </summary>
 public class MeshRenderer : IComponent
 {
-    public Entity Owner { get; set; } 
+    public Entity Owner { get; set; }
     public bool AutoRegister { get; set; } = true;
 
     public MeshRenderer SetAutoRegister(bool autoRegister)
@@ -16,12 +20,12 @@ public class MeshRenderer : IComponent
         AutoRegister = autoRegister;
         return this;
     }
-    
+
     RERL_Core.Mesh? _mesh;
     Shader? _shader;
     int _vao = -1, _vbo = -1, _ibo = -1;
     bool _buffersDirty = false;
-        
+
     public MeshRenderer AttachMesh(RERL_Core.Mesh mesh)
     {
         _mesh = mesh;
@@ -35,35 +39,45 @@ public class MeshRenderer : IComponent
         if (buildMeshBuffers) BuildMeshBuffers();
         return this;
     }
+
     public RERL_Core.Mesh? GetMesh() => _mesh!;
     public Shader? GetShader() => _shader;
 
     public void OnAdd()
     {
-        if(AutoRegister) RERL_Core.RegisterRenderable(this);
+        if (AutoRegister)
+            RERL_Core.RegisterRenderable(this);
     }
 
     /// <summary>
-    /// The mesh will not update if this is not called.
-    /// In <see cref="AttachMesh"/> has a boolean that allows this to be automatically called, unless explicitly told not to.
+    /// Builds the VAO, VBO, and IBO for the attached mesh.
+    /// Must be called after attaching a mesh unless auto‑built.
     /// </summary>
+    /// <param name="silence">If true, missing mesh errors are ignored.</param>
+    /// <returns>True if buffers were built successfully.</returns>
     public bool BuildMeshBuffers(bool silence = false)
     {
         if (_mesh == null)
             return silence ? false : throw new Exception("ERR: Mesh is null.");
-        
+
         _vao = GL.GenVertexArray();
         _vbo = GL.GenBuffer();
         _ibo = GL.GenBuffer();
-        
+
         GL.BindVertexArray(_vao);
-        
+
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, ((RERL_Core.Mesh)_mesh).Vertices.Length * Marshal.SizeOf<RERL_Core.Vertex>(), ((RERL_Core.Mesh)_mesh).Vertices, BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer,
+            _mesh.Value.Vertices.Length * Marshal.SizeOf<RERL_Core.Vertex>(),
+            _mesh.Value.Vertices,
+            BufferUsageHint.StaticDraw);
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ibo);
-        GL.BufferData(BufferTarget.ElementArrayBuffer, ((RERL_Core.Mesh)_mesh).Indices.Length * sizeof(uint), ((RERL_Core.Mesh)_mesh).Indices.ToArray(), BufferUsageHint.StaticDraw);
-        
+        GL.BufferData(BufferTarget.ElementArrayBuffer,
+            _mesh.Value.Indices.Length * sizeof(uint),
+            _mesh.Value.Indices.ToArray(),
+            BufferUsageHint.StaticDraw);
+
         int stride = Marshal.SizeOf<RERL_Core.Vertex>();
 
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
@@ -74,24 +88,38 @@ public class MeshRenderer : IComponent
 
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, stride, 6 * sizeof(float));
         GL.EnableVertexAttribArray(2);
-        
+
         _buffersDirty = true;
         return true;
     }
-    
+
+    /// <summary>
+    /// Renders the mesh using the attached shader and the owner's Transform.
+    /// </summary>
+    /// <param name="instanceCount">Number of instances to draw.</param>
     public void Render(int instanceCount = 1)
     {
         if (_mesh == null) throw new Exception("ERR: Mesh is null.");
         if (_shader == null) throw new Exception("ERR: Shader is null.");
-        if(!_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
-        
-        if(!Owner.TryGetComponent(out Transform? transform) || transform == null) throw new Exception("ERR: MeshRender needs parent object to own a Transform.");
+        if (!_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
+
+        if (!Owner.TryGetComponent(out Transform? transform) || transform == null)
+            throw new Exception("ERR: MeshRenderer requires a Transform component.");
+
         _shader.ApplyUniform("uModel", transform.WorldMatrix);
 
         GL.BindVertexArray(_vao);
-        GL.DrawElementsInstanced(PrimitiveType.Triangles,  ((RERL_Core.Mesh)_mesh).Indices.Length, DrawElementsType.UnsignedInt, 0, instanceCount);
+        GL.DrawElementsInstanced(
+            PrimitiveType.Triangles,
+            _mesh.Value.Indices.Length,
+            DrawElementsType.UnsignedInt,
+            0,
+            instanceCount);
     }
-    
+
+    /// <summary>
+    /// Deletes the VAO, VBO, and IBO associated with this mesh.
+    /// </summary>
     public void DisposeBuffers()
     {
         if (_vao != 0) GL.DeleteVertexArray(_vao);

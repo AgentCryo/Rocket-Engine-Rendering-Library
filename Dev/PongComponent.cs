@@ -7,6 +7,7 @@ namespace Dev;
 public class PongComponent : IComponent
 {
     public Entity Owner { get; set; }
+    Transform transform;
 
     readonly float _width;
     readonly float _height;
@@ -24,13 +25,13 @@ public class PongComponent : IComponent
 
     public void Load() {}
 
-    public void OnAdd() {}
+    public void OnAdd()
+    {
+        Owner.AddComponent(transform = Transform.Identity.SetPosition((0.2f, 2, 0)));
+    }
 
     public void Update(float deltaTime)
     {
-        if (!Owner.TryGetComponent(out Transform? transform) || transform == null)
-            return;
-
         // move
         transform.Position.X += _velocity.X * deltaTime;
         transform.Position.Y += _velocity.Y * deltaTime;

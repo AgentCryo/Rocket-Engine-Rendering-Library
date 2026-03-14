@@ -4,11 +4,22 @@ using OpenTK.Windowing.Desktop;
 
 namespace RERL.Objects;
 
+/// <summary>
+/// Represents a post‑processing shader that renders a full‑screen pass
+/// using the output of the geometry buffer.
+/// </summary>
 public class PostProcess
 {
     Shader _shader;
     RERL_Core.GBuffer _gbuffer;
 
+    /// <summary>
+    /// Loads and attaches the post‑processing shader, and creates an internal G‑Buffer
+    /// used to store the output of this post‑process pass.
+    /// </summary>
+    /// <param name="postProcessFragmentPath">Path to the fragment shader used for post‑processing.</param>
+    /// <param name="window">The game window used to size the internal G‑Buffer.</param>
+    /// <returns>The current <see cref="PostProcess"/> instance for chaining.</returns>
     public PostProcess AttachPostProcessShader(string postProcessFragmentPath, GameWindow window)
     {
         _gbuffer = new RERL_Core.GBuffer(window.Size);
@@ -29,7 +40,14 @@ public class PostProcess
         
         return this;
     }
-    
+
+    /// <summary>
+    /// Executes the post‑processing shader using the provided G‑Buffer as input.
+    /// </summary>
+    /// <param name="gbuffer">The input G‑Buffer from the geometry pass.</param>
+    /// <param name="VAO">The VAO containing a full‑screen triangle.</param>
+    /// <param name="renderToScreen">If true, the result is also drawn to the screen.</param>
+    /// <returns>The internal G‑Buffer containing the post‑processed output.</returns>
     public RERL_Core.GBuffer RenderPostProcess(RERL_Core.GBuffer gbuffer, int VAO, bool renderToScreen)
     {
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, _gbuffer.GetFBO());
@@ -63,37 +81,24 @@ public class PostProcess
         return _gbuffer;
     }
 
-
     /// <summary>
-    /// Assigns a value to a uniform variable in the shader program.
-    /// The shader must be bound using <see cref="Use"/> before calling this.
+    /// Assigns a value to a uniform variable in the post‑processing shader.
     /// </summary>
-    /// <param name="name">The uniform name in the GLSL shader.</param>
-    /// <param name="value">The value to upload to the GPU.</param>
-    /// <param name="silence">If true, missing uniforms are ignored instead of throwing.</param>
-    /// <returns>True if the uniform was successfully applied.</returns>
     public bool ApplyUniform(string name, object? value, bool silence = false)
     {
-        return _shader.ApplyUniform(name, value);
+        return _shader.ApplyUniform(name, value, silence);
     }
 
     /// <summary>
     /// Registers a uniform whose value is supplied automatically each frame.
-    /// The provided getter function is invoked whenever <see cref="ApplyAutoUniforms"/>
-    /// is called.
     /// </summary>
-    /// <param name="name">The uniform name in the GLSL shader.</param>
-    /// <param name="getter">A function that returns the value to assign.</param>
-    /// <param name="silence">If true, missing uniforms are ignored.</param>
-    /// <returns>True if the uniform was registered successfully.</returns>
     public bool RegisterAutoUniform(string name, Func<object?> getter, bool silence = false)
     {
         return _shader.RegisterAutoUniform(name, getter, silence);
     }
 
     /// <summary>
-    /// Applies all automatically registered uniforms by invoking their getter
-    /// functions and uploading the resulting values to the GPU.
+    /// Applies all automatically registered uniforms.
     /// </summary>
     public void ApplyAutoUniforms()
     {

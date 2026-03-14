@@ -9,7 +9,7 @@
         <IsPackable>true</IsPackable>
 
         <PackageId>RocketEngine.RERL</PackageId>
-        <Version>0.1.0</Version>
+        <Version>0.1.1</Version>
         <Authors>AgentCryo</Authors>
         <Description>Rocket Engine Rendering Library</Description>
         <PackageTags>graphics;opengl;opentk;rendering;library</PackageTags>

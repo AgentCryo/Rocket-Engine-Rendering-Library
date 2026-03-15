@@ -17,13 +17,13 @@ RCS is the Entity Component System (ECS) used by Rocket Engine. Will also take t
 A standalone rendering library built for Rocket Engine.
 
 **Done:**
-Core mesh loading (OBJ) and shader loading (GLSL).
-Basic post‑processing pipeline.
-Batched mesh rendering grouped by shader to reduce shader switching.
-RCS‑integrated Camera Component.
-XML documentation for most public API members.
+-Core mesh loading (OBJ) and shader loading (GLSL).
+-Basic post‑processing pipeline.
+-Batched mesh rendering grouped by shader to reduce shader switching.
+-RCS‑integrated Camera Component.
+-XML documentation for most public API members.
 
-**Planned**
+**Planned:**
 - Textures (Color, Normal, Specular/Metallic).
 - Transparency/Translucency.
 - Voxel Global Illumination.

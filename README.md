@@ -13,6 +13,16 @@ My test area that acts as the user-side/game layer built on top of Rocket Engine
 ## RCS — Rocket Control System v0.1.1
 RCS is the Entity Component System (ECS) used by Rocket Engine. Will also take the place of an "engine core".
 
+**Done:**
+- Component Interface.
+- Entity with component handling.
+- Scene with entity handling.
+
+**Planned:**
+- Better global error logger.
+
+---
+
 ## RERL — Rocket Engine Rendering Library v0.1.1
 A standalone rendering library built for Rocket Engine.
 

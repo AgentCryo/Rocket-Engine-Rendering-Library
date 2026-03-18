@@ -1,5 +1,6 @@
 ﻿using RCS.Components;
 using System.Text;
+using static RCS.Logger;
 
 namespace RCS;
 
@@ -20,7 +21,9 @@ public static class RCS_Core
         /// </summary>
         public string GetName() => _name;
         readonly Dictionary<string, Entity> _entities = [];
-        
+
+        #region Entity Management
+
         /// <summary>
         /// Adds an entity to the scene.
         /// </summary>
@@ -30,7 +33,7 @@ public static class RCS_Core
         public Scene AddEntity(Entity entity)
         {
             if (_entities.ContainsKey(entity.GetName()))
-                throw new Exception($"ERR: Entity with name {entity.GetName()} already exists");
+                Error($"Entity with name {entity.GetName()} already exists"); //throw new Exception($"ERR: Entity with name {entity.GetName()} already exists");
             
             _entities.Add(entity.GetName(), entity);
             return this;
@@ -44,7 +47,7 @@ public static class RCS_Core
         public void RemoveEntity(Entity entity)
         {
             if (!_entities.Remove(entity.GetName())) 
-                throw new Exception($"ERR: Entity with name {entity.GetName()} was not found");
+                Error($"Entity with name {entity.GetName()} was not found"); //throw new Exception($"ERR: Entity with name {entity.GetName()} was not found");
         }
         
         /// <summary>
@@ -54,8 +57,8 @@ public static class RCS_Core
         /// <exception cref="Exception">Thrown if the entity does not exist.</exception>
         public void RemoveEntity(string name)
         {
-            if (!_entities.Remove(name, out var entity)) 
-                throw new Exception($"ERR: Entity with name {name} was not found");
+            if (!_entities.Remove(name, out var entity))
+                Error($"Entity with name {name} was not found"); //throw new Exception($"ERR: Entity with name {name} was not found");
         }
         
         /// <summary>
@@ -71,7 +74,8 @@ public static class RCS_Core
         /// <exception cref="Exception">Thrown if the entity does not exist.</exception>
         public void GetEntity(string name, out Entity entity)
         {
-            if (!_entities.TryGetValue(name, out entity!)) throw new Exception($"ERR: Entity with name {name} was not found");
+            // ReSharper disable once NullableWarningSuppressionIsUsed
+            if (!_entities.TryGetValue(name, out entity!)) Error($"Entity with name {name} was not found"); //throw new Exception($"ERR: Entity with name {name} was not found");
         }
         
         /// <summary>
@@ -83,7 +87,9 @@ public static class RCS_Core
         public Entity GetEntity(string name)
         {
             if(_entities.TryGetValue(name, out var entity)) return entity;
-            throw new Exception($"ERR: Entity with name {name} was not found");
+            Error($"Entity with name {name} was not found"); //throw new Exception($"ERR: Entity with name {name} was not found");
+            // ReSharper disable once NullableWarningSuppressionIsUsed
+            return null!; //Should never be called as Error by default throws an Exception.
         }
 
         /// <summary>
@@ -96,6 +102,8 @@ public static class RCS_Core
         {
             return GetEntity(name).GetComponent<T>();
         }
+        
+        #endregion
         
         /// <summary>
         /// Calls <c>Load()</c> on all entities in the scene.
@@ -120,11 +128,14 @@ public static class RCS_Core
     static readonly Dictionary<string, Scene> Scenes = [];
     static string _activeScene = "";
     
-    public static Scene GetActiveScene() {
-        if(_activeScene != "") return Scenes[_activeScene];
-        throw new Exception($"ERR: Failed to get active scene: Active scene not set.");
+    public static Scene GetActiveScene()
+    {
+        if (string.IsNullOrEmpty(_activeScene))
+            Error($"Failed to get active scene: Active scene not set."); //throw new Exception($"ERR: Failed to get active scene: Active scene not set.");
+        
+        return Scenes[_activeScene];
     }
-    
+
     /// <summary>
     /// Sets the active scene by name.
     /// </summary>
@@ -132,9 +143,10 @@ public static class RCS_Core
     /// <exception cref="Exception">Thrown if the scene does not exist.</exception>
     public static void SetActiveScene(string name)
     {
-        if (Scenes.TryGetValue(name, out var scene)) {
-            _activeScene = name;
-        } else throw new Exception($"ERR: Scene with name {name} was not found");
+        if (!Scenes.TryGetValue(name, out var scene))
+            Error($"Scene with name {name} was not found"); //throw new Exception($"ERR: Scene with name {name} was not found");
+        
+        _activeScene = name;
     }
 
     /// <summary>
@@ -145,7 +157,7 @@ public static class RCS_Core
     public static void AddScene(Scene scene)
     {
         if (Scenes.ContainsKey(scene.GetName()))
-            throw new Exception($"ERR: Scene with name {scene.GetName()} already exists");
+            Error($"Scene with name {scene.GetName()} already exists"); //throw new Exception($"ERR: Scene with name {scene.GetName()} already exists");
 
         Scenes.Add(scene.GetName(), scene);
     }
@@ -158,7 +170,7 @@ public static class RCS_Core
     public static void RemoveScene(Scene scene)
     {
         if (!Scenes.Remove(scene.GetName()))
-            throw new Exception($"ERR: Scene with name {scene.GetName()} was not found");
+            Error($"Scene with name {scene.GetName()} was not found"); //throw new Exception($"ERR: Scene with name {scene.GetName()} was not found");
     }
 
     /// <summary>
@@ -169,7 +181,7 @@ public static class RCS_Core
     public static void RemoveScene(string name)
     {
         if (!Scenes.Remove(name, out var scene))
-            throw new Exception($"ERR: Scene with name {name} was not found");
+            Error($"Scene with name {name} was not found."); //throw new Exception($"ERR: Scene with name {name} was not found");
     }
 
     /// <summary>
@@ -178,8 +190,8 @@ public static class RCS_Core
     /// <exception cref="Exception">Thrown if no active scene is set.</exception>
     public static void LoadActiveScene()
     {
-        if (_activeScene is null)
-            throw new Exception("ERR: No active scene has been set");
+        if (string.IsNullOrEmpty(_activeScene))
+            Error("No active scene has been set."); //throw new Exception("ERR: No active scene has been set");
 
         Scenes[_activeScene].Load();
     }
@@ -192,7 +204,7 @@ public static class RCS_Core
     public static void UpdateActiveScene(double deltaTime)
     {
         if (_activeScene is null)
-            throw new Exception("ERR: No active scene has been set");
+            Error($"No active scene has been set."); //throw new Exception("ERR: No active scene has been set");
 
         Scenes[_activeScene].Update(deltaTime);
     }

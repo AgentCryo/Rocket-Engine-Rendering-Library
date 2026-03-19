@@ -12,8 +12,7 @@ public class CubeComponent : IComponent
     public void Load() {}
     public void Update(float deltaTime)
     {
-        if (!Owner.TryGetComponent(out Transform? transform) || transform == null) return;
-        transform.Position.X = float.Sin(_time += deltaTime) * 3;
+        Owner.Transform.Position.X = float.Sin(_time += deltaTime) * 3;
     }
     public void OnAdd() {}
 }

@@ -27,7 +27,8 @@ public class PongComponent : IComponent
 
     public void OnAdd()
     {
-        Owner.AddComponent(transform = Transform.Identity.SetPosition((0.2f, 2, 0)));
+        //Owner.AddComponent(transform = Transform.Identity.SetPosition((0.2f, 2, 0)));
+        transform = Owner.Transform.SetPosition((0.2f, 2, 0));
     }
 
     public void Update(float deltaTime)

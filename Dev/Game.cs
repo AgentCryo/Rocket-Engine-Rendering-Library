@@ -5,66 +5,145 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using RCS;
 using RERL;
+using RERL.Components;
 using RERL.Loaders;
-using RERL.Objects;
+using RERL.ShaderTypes;
 
 namespace Dev;
 
-//dotnet publish -p:PublishProfile=Win64
+// dotnet publish -p:PublishProfile=Win64
 
-public class Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
-    : GameWindow(gameWindowSettings, nativeWindowSettings)
+public class Game : GameWindow
 {
     Camera _camera = new Camera();
     CameraController _cameraController = new CameraController();
     
     static Shader _fadeTest;
-    static PostProcess _postProcess = new();
+    static Shader _mengerSpongeObjectShader = new();
+    static PostProcess _testingPostProcess = new();
+
+    public RCS_Core.Scene MainScene;
+
+    public Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+        : base(gameWindowSettings, nativeWindowSettings)
+    {
+    }
     
     protected override void OnLoad()
     {
         base.OnLoad();
+        Logger.Initialize(false, true);
+        
         _camera.SetProjectionFovXInDegrees(90, Size.X / (float)Size.Y, 0.1f, 100f);
         CursorState = CursorState.Grabbed;
         _cameraController.InitializeCameraController(_camera, KeyboardState, MouseState, this);
         
         _fadeTest = new Shader().AttachShader(Shader.DefaultVert, "./Shaders/FadeTest/fadeTest.frag");
-        RERL_Core.RegisterShader(_fadeTest);
+        RenderPipeline.RegisterShader(_fadeTest);
         
-        _postProcess = new PostProcess().AttachPostProcessShader("./Shaders/MergerSponge/mergerSponge.frag", this);
-        _postProcess.RegisterAutoUniform("cameraPos", () => _cameraController.GetPosition());
-        _postProcess.RegisterAutoUniform("cameraRot", () => _cameraController.GetOrientation());
-        RERL_Core.RegisterPostProcess(_postProcess);
+        _mengerSpongeObjectShader = new Shader().AttachShader(Shader.DefaultVert, "./Shaders/MengerSpongeObject/mengerSpongeObject.frag");
+        _mengerSpongeObjectShader.RegisterAutoUniform("cameraPos", () => _cameraController.GetPosition());
+        _mengerSpongeObjectShader.RegisterAutoUniform("cameraRot", () => _cameraController.GetOrientation());
+        _mengerSpongeObjectShader.RegisterAutoUniform("screenSize", () => Size.ToVector2());
+        RenderPipeline.RegisterShader(_mengerSpongeObjectShader);
+        
+        _testingPostProcess = new PostProcess().AttachPostProcessShader("./Shaders/TestingPostProcess/testingPostProcess.frag", this);
+        RenderPipeline.RegisterPostProcess(_testingPostProcess);
         
         RERL_Core.SetCamera(_camera);
         RERL_Core.SetGameWindow(this);
         RERL_Core.Load();
         
-        RCS_Core.AddScene(
-            new RCS_Core.Scene("Main")
-                .AddEntity(new Entity("Cube")
-                    .AddComponent(new MeshRenderer().SetAutoRegister(false).AttachMesh(MeshLoader.CubeMesh).AttachShader(_fadeTest))
-                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 0.0f, 0)))
-                    .AddComponent<CubeComponent>())
-                
-                .AddEntity(new Entity("Icosahedron")
-                    .AddComponent(new MeshRenderer().SetAutoRegister(false).AttachMesh(MeshLoader.IcosahedronMesh).AttachShader(RERL_Core.GetDefaultShader()))
-                    .AddComponent(new PongComponent(5, 5)))
-                
-                .AddEntity(new Entity("Sphere")
-                    .AddComponent(new MeshRenderer().AttachMesh(MeshLoader.UVSphereMesh).AttachShader(RERL_Core.GetDefaultShader()))
-                    .AddComponent(Transform.Identity.SetPosition(new Vector3(0, 0.0f, 0))))
+        var glbSponzaModels = MeshLoader.ParseMesh("./Models/glbSponza/NewSponza_Main_glTF_003.gltf");
+        
+        MainScene = new RCS_Core.Scene("Main");
+
+        // Cube
+        {
+            var cube = new Entity("Cube")
+                .AddComponent(new MeshRenderer()
+                    .AttachMesh(MeshLoader.CubeMesh)
+                    .AttachShader(_fadeTest))
+                .AddComponent<CubeComponent>();
+
+            cube.Transform.Position = new Vector3(0, 0.0f, 0);
+            MainScene.AddEntity(cube);
+        }
+
+        // Menger Sponge Object
+        {
+            var menger = new Entity("MengerSpongeObject")
+                .AddComponent(new MeshRenderer()
+                    .AttachMesh(MeshLoader.CubeMesh)
+                    .AttachShader(_mengerSpongeObjectShader));
+
+            menger.Transform.Position = new Vector3(5, 0.0f, 0);
+            menger.Transform.Scale = new Vector3(2.5f, 2.5f, 2.5f);
+            MainScene.AddEntity(menger);
+
+            _mengerSpongeObjectShader.RegisterAutoUniform("objectPos", () => menger.Transform.Position);
+            _mengerSpongeObjectShader.RegisterAutoUniform(
+                "objectRot",
+                () => menger.Transform.Rotation
             );
+            _mengerSpongeObjectShader.RegisterAutoUniform("objectScale", () => menger.Transform.Scale);
+        }
+
+        // Icosahedron
+        {
+            var icosahedron = new Entity("Icosahedron")
+                .AddComponent(new PongComponent(5, 5))
+                .AddComponent(new MeshRenderer()
+                    .AttachMesh(MeshLoader.IcosahedronMesh)
+                    .AttachShader(RERL_Core.GetDefaultShader()));
+
+            MainScene.AddEntity(icosahedron);
+        }
+        
+        // Sphere
+        {
+            var sphere = new Entity("Sphere")
+                .AddComponent(new MeshRenderer()
+                    .AttachMesh(MeshLoader.UVSphereMesh)
+                    .AttachShader(RERL_Core.GetDefaultShader()));
+
+            sphere.Transform.SetPosition((0, 1, 0));
+            MainScene.AddEntity(sphere);
+        }
+
+        // Sponza models via ModelRenderer
+        {
+            int index = 0;
+            foreach (var model in glbSponzaModels)
+            {
+                var sponza = new Entity($"Sponza_{index++}")
+                    .AddComponent(new ModelRenderer()
+                        .AttachModel(model.model)
+                        .AttachShader(RERL_Core.GetDefaultShader()));
+                
+                sponza.Transform.SetTransform(model.transform);
+                MainScene.AddEntity(sponza);
+            }
+        }
+
+        RCS_Core.AddScene(MainScene);
         RCS_Core.SetActiveScene("Main");
-        RERL_Core.RegisterRenderable(RCS_Core.GetActiveScene().GetEntity("Icosahedron").GetComponent<MeshRenderer>());  //Get Component Examples
-        RERL_Core.RegisterRenderable(RCS_Core.GetActiveScene().GetComponentFromEntity<MeshRenderer>("Cube"));           //Get Component Examples
         RCS_Core.LoadActiveScene();
     }
 
+    float _time;
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         _cameraController.UpdateInput(args.Time);
         RCS_Core.UpdateActiveScene(args.Time);
+
+        var menger = RCS_Core.GetActiveScene().GetEntity("MengerSpongeObject");
+        _time += (float)args.Time / 10f;
+
+        menger.Transform.Position.X = float.Sin(_time) * 10f;
+        menger.Transform.Position.Y = float.Cos(_time) * 10f;
+        menger.Transform.EulerAngles = new Vector3(0, _time * 31f, 0);
+
         base.OnUpdateFrame(args);
     }
 

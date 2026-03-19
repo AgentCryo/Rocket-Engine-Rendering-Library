@@ -1,6 +1,6 @@
 using OpenTK.Mathematics;
 
-namespace RERL.Objects;
+namespace RERL;
 
 /// <summary>
 /// Represents a 3D camera with position, rotation, and view/projection matrices.
@@ -19,29 +19,46 @@ public class Camera
     /// <summary>
     /// Sets the projection matrix using a vertical field of view (in degrees).
     /// </summary>
+    /// <param name="aspect">Screen width / Screen Height.</param>
     public void SetProjectionFovYInDegrees(float fovY, float aspect, float near, float far)
     {
-        _projection = Matrix4.CreatePerspectiveFieldOfView(float.DegreesToRadians(fovY), aspect, near, far);
+        _projection = CreatePerspectiveFieldOfViewLH(float.DegreesToRadians(fovY), aspect, near, far);
     }
 
     /// <summary>
     /// Sets the projection matrix using a horizontal field of view (in degrees).
     /// </summary>
+    /// <param name="aspect">Screen width / Screen Height.</param>
     public void SetProjectionFovXInDegrees(float fovX, float aspect, float near, float far)
     {
         float fovY = 2f * MathF.Atan(MathF.Tan(MathHelper.DegreesToRadians(fovX) / 2f) / aspect);
-        _projection = Matrix4.CreatePerspectiveFieldOfView(fovY, aspect, near, far);
+        _projection = CreatePerspectiveFieldOfViewLH(fovY, aspect, near, far);
     }
 
+    public static Matrix4 CreatePerspectiveFieldOfViewLH(float fov, float aspect, float near, float far)
+    {
+        float f = 1f / MathF.Tan(fov / 2f);
+
+        return new Matrix4(
+            f / aspect, 0, 0, 0,
+            0, f, 0, 0,
+            0, 0, far / (far - near), 1,
+            0, 0, (-near * far) / (far - near), 0
+        );
+    }
+    
     /// <summary>
     /// Updates the view matrix based on the camera's position and rotation.
     /// </summary>
     public void UpdateViewMatrix()
     {
-        Vector3 forward = _rotation * -Vector3.UnitZ;
-        Vector3 up = _rotation * Vector3.UnitY;
+        // Build camera world transform
+        Matrix4 world =
+            Matrix4.CreateFromQuaternion(_rotation) *
+            Matrix4.CreateTranslation(_position);
 
-        _view = Matrix4.LookAt(_position, _position + forward, up);
+        // View = inverse of world transform
+        Matrix4.Invert(world, out _view);
     }
 
     public void SetPosition(Vector3 position) => _position = position;

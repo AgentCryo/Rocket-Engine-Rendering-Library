@@ -1,7 +1,7 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace RERL.Objects;
+namespace RERL.ShaderTypes;
 
 /// <summary>
 /// Represents an OpenGL shader program, supporting compilation, linking,
@@ -35,15 +35,27 @@ public class Shader
         if (vertexShader == -1) throw new Exception("ERR: Vertex Shader could not be created!");
         GL.ShaderSource(vertexShader, vertexSource);
         GL.CompileShader(vertexShader);
-        CheckCompile(vertexShader, "VERTEX");
+        CheckCompile(vertexShader, "VERTEX", vertexPath);
 
+        string finalFragmentSource =
+            "#version 330 core\n" +
+            File.ReadAllText("./Shaders/Helpers/gbuffer.glsl") + "\n" +
+            File.ReadAllText("./Shaders/Helpers/gbufferSampler.glsl") + "\n" +
+            File.ReadAllText("./Shaders/Helpers/common.glsl") + "\n" +
+            fragmentSource;
+        
         int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
         if (fragmentShader == -1) throw new Exception("ERR: Fragment Shader could not be created!");
-        GL.ShaderSource(fragmentShader, fragmentSource);
+        GL.ShaderSource(fragmentShader, finalFragmentSource);
         GL.CompileShader(fragmentShader);
-        CheckCompile(fragmentShader, "FRAGMENT");
+        CheckCompile(fragmentShader, "FRAGMENT", fragmentPath);
 
+        if (Handle != 0)
+            GL.DeleteProgram(Handle);
+        
         Handle = GL.CreateProgram();
+        _uniformCache.Clear();
+        _autoUniforms.Clear();
         GL.AttachShader(Handle, vertexShader);
         GL.AttachShader(Handle, fragmentShader);
         GL.LinkProgram(Handle);
@@ -57,12 +69,16 @@ public class Shader
         return this;
     }
 
-    void CheckCompile(int shader, string type)
+    void CheckCompile(int shader, string type, string shaderPath)
     {
         GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
-        if (status == 0) {
+        if (status == 0)
+        {
             string info = GL.GetShaderInfoLog(shader);
-            throw new Exception($"{type} SHADER COMPILATION ERROR:\n{info}");
+
+            throw new Exception(
+                $"{type} SHADER COMPILATION ERROR in {shaderPath}:\n{info}"
+            );
         }
     }
 
@@ -106,7 +122,14 @@ public class Shader
             case int i: GL.Uniform1(location, i); break;
             case bool b: GL.Uniform1(location, b ? 1 : 0); break;
             case Vector2 v2: GL.Uniform2(location, v2); break;
+            case Vector2i v2: GL.Uniform2(location, v2.X, v2.Y); break;
             case Vector3 v3: GL.Uniform3(location, v3); break;
+            case Vector3i v3:  GL.Uniform3(location, v3.X, v3.Y, v3.Z);  break;
+            case Vector2[] v2Arr:
+                if (v2Arr.Length == 0)
+                    return silence ? false : throw new Exception($"ERR: Cannot set empty Vector3[] uniform '{name}'.");
+                GL.Uniform2(location, v2Arr.Length, ref v2Arr[0].X);
+                break;
             case Vector3[] v3Arr:
                 if (v3Arr.Length == 0)
                     return silence ? false : throw new Exception($"ERR: Cannot set empty Vector3[] uniform '{name}'.");

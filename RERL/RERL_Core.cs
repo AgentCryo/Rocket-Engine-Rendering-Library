@@ -7,8 +7,11 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using RCS;
+using RERL.Components;
 using RERL.Loaders;
-using RERL.Objects;
+using RERL.ShaderTypes;
+using static RERL.RenderPipeline;
 
 namespace RERL;
 
@@ -23,105 +26,56 @@ public static class RERL_Core
     /// Represents a single vertex containing position, normal, and UV coordinates.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public struct Vertex(Vector3 position, Vector3 normal, Vector2 uv)
+    public struct Vertex
     {
-        public Vector3 Position = position;
-        public Vector3 Normal = normal;
-        public Vector2 UV = uv;
+        public Vector3 Position;   // 12 bytes
+        public Vector3 Normal;     // 12 bytes
+        public Vector2 UV;         // 8 bytes
+        public Vector4 Tangent;    // 16 bytes (xyz + handedness)
+        public Vertex(Vector3 position, Vector3 normal, Vector2 uv) 
+        {
+            Position = position;
+            Normal = normal;
+            UV = uv;
+        }
     }
 
     /// <summary>
     /// Represents a mesh consisting of vertices and indices.
     /// </summary>
-    public struct Mesh(Vertex[] vertices, uint[] indices)
+    public struct Mesh(Vertex[] vertices, uint[] indices, Material material)
     {
         public Vertex[] Vertices = vertices;
-        public uint[] Indices = indices;
+        public uint[] Indices    = indices;
+        public Material Material = material; //It *should* be using the same instance stored in Model.
     }
 
-    public struct GBuffer
+    public class Material(String name) // For PBR
     {
-        public int Color, Normal, Depth;
-        public int FBO;
-        public int GetColor() => Color;
-        public int GetNormal() => Normal;
-        public int GetDepth() => Depth;
-        public int GetFBO() => FBO;
-        
-        /// <summary>
-        /// Creates a new G‑Buffer with color, normal, and depth attachments sized to the screen.
-        /// </summary>
-        public GBuffer(Vector2i screenSize)
-        {
-            FBO = GL.GenFramebuffer();
-            
-            Color = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, Color);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                screenSize.X, screenSize.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
-            SetupTexture2D(Color);
+        public string Name = name;
+        public Vector3 BaseAlbedo = Vector3.One;
+        public float BaseRoughness = 0.5f;
+        public float BaseMetallic  = 0.15f;
+        public object TempAlbedoTexture; // Texture either being an ID or an object that holds the path, id, and any other information.
+        public object TempNormalTexture; // Or possibly a list of textures, and the texture holds it's type.
+        //                                  Probably an ID since ImageLoader.cs already returns the ID.
+    }
 
-            Normal = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, Normal);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
-                screenSize.X, screenSize.Y, 0, PixelFormat.Rgba, PixelType.Float, IntPtr.Zero);
-            SetupTexture2D(Normal);
-
-            Depth = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, Depth);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent,
-                screenSize.X, screenSize.Y, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
-            SetupTexture2D(Depth);
-            
-            var status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
-            if (status != FramebufferErrorCode.FramebufferComplete)
-                throw new Exception($"GBuffer incomplete: {status}");
-        }
-        
-        void SetupTexture2D(int tex)
-        {
-            GL.BindTexture(TextureTarget.Texture2D, tex);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-        }
-
-        /// <summary>
-        /// Clears all G‑Buffer attachments (color, normal, depth).
-        /// </summary>
-        public void Clear()
-        {
-            float[] clear = new float[4];
-            GL.GetFloat(GetPName.ColorClearValue, clear);
-
-            // Clear COLOR attachment 0 (albedo)
-            GL.ClearBuffer(ClearBuffer.Color, 0, clear);
-
-            // Clear COLOR attachment 1 (normal)
-            GL.ClearBuffer(ClearBuffer.Color, 1, clear);
-
-            // Clear DEPTH attachment
-            float depthClear = 1f;
-            GL.ClearBuffer(ClearBuffer.Depth, 0, ref depthClear);
-        }
-
+    public class Model(string name, List<Mesh> subMeshes, List<Material> materials)
+    {
+        public string Name = name;
+        public List<Mesh> SubMeshes = subMeshes;
+        public List<Material> Materials = materials;
     }
     
     static Shader? _defaultShader;
     public static Shader GetDefaultShader() => _defaultShader!;
 
-    static int _postProcessingQuad_VAO;
-    static GBuffer _geometryFrame;
-    static readonly List<Shader> Shaders = [];
-    static readonly List<PostProcess> PostProcesses = [];
-    static readonly Dictionary<int, List<MeshRenderer>> ShaderBatchRendering = new();
-    static readonly List<MeshRenderer> Renderables = [];
-    static Camera _camera;
-    static GameWindow _window;
+    internal static Camera Camera;
+    internal static GameWindow Window;
     
-    public static void SetCamera(Camera camera) => _camera = camera;
-    public static void SetGameWindow(GameWindow window) => _window = window;
+    public static void SetCamera(Camera camera) => Camera = camera;
+    public static void SetGameWindow(GameWindow window) => Window = window;
     
     /// <summary>
     /// Initializes the rendering system, loads shaders, creates the G‑Buffer,
@@ -129,9 +83,10 @@ public static class RERL_Core
     /// </summary>
     public static void Load()
     {
-        var assembly = AppDomain.CurrentDomain .GetAssemblies() .FirstOrDefault(a => a.GetName().Name == "RERL");
-
-        Console.WriteLine(assembly != null ? $"Library Found: {assembly.FullName}" : "Library not Found");
+        //var RERL = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "RERL");
+        //var RCS = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "RCS");
+        //Console.WriteLine(RERL != null ? $"Library Found: {RERL.FullName}" : "Library not Found");
+        //Console.WriteLine(RCS != null ? $"Library Found: {RCS.FullName}" : "Library not Found");
 
         GL.ClearColor(Color.FromArgb(255, 20,25,35));
         GL.Enable(EnableCap.DepthTest);
@@ -140,118 +95,12 @@ public static class RERL_Core
         
         _defaultShader = new Shader().AttachShader("./Shaders/Default/default.vert", "./Shaders/Default/default.frag");
         RegisterShader(_defaultShader);
-        foreach (var shader in Shaders) {
-            shader.RegisterAutoUniform("uView", () => _camera.GetView());
-            shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
-        }
-
-        _geometryFrame = new GBuffer(_window.Size);
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, _geometryFrame.GetFBO());
-        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, _geometryFrame.Color, 0);
-        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, _geometryFrame.Normal, 0);
-        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, _geometryFrame.Depth, 0);
         
-        DrawBuffersEnum[] drawBuffers = [DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1];
-        GL.DrawBuffers(drawBuffers.Length, drawBuffers);
-        
-        _postProcessingQuad_VAO = GL.GenVertexArray();
+        InitializeRenderPipeline();
     }
     
     /// <summary>
-    /// Renders a single frame, including geometry pass, post‑processing,
-    /// and buffer swapping.
+    /// Renders a single frame, including geometry pass, post‑processing, and buffer swapping.
     /// </summary>
-    public static void RenderFrame(FrameEventArgs args)
-    {
-        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, PostProcesses.Count != 0 ? _geometryFrame.GetFBO() : 0);
-        _geometryFrame.Clear();
-        
-        //Render all meshes grouped by shader to minimize shader switches.
-        foreach (var kpv in ShaderBatchRendering) {
-            //int shaderHandle = kpv.Key;
-            List<MeshRenderer> renderables = kpv.Value;
-            
-            Shader shader = renderables[0].GetShader()!;
-            shader.Use();
-            shader.ApplyAutoUniforms();
-
-            foreach (var mr in renderables) {
-                //Temp Transform Identity, will be replaced with actual transforms later.
-                //mr.Render(RenderTransform.Identity);
-                //New one
-                mr.Render();
-            }
-        }
-        
-        if (PostProcesses.Count != 0) {
-            GBuffer input = _geometryFrame;
-            for (int p = 0; p < PostProcesses.Count; p++) {
-                input = PostProcesses[p].RenderPostProcess(input, _postProcessingQuad_VAO, (p == PostProcesses.Count - 1));
-            }
-        }
-        
-        _window.SwapBuffers();
-    }
-    
-    static void RegisterToShaderBatch(MeshRenderer renderable)
-    {
-        int handle = renderable.GetShader()!.GetHandle();
-        if (!ShaderBatchRendering.TryGetValue(handle, out var list))
-        {
-            list = [];
-            ShaderBatchRendering[handle] = list;
-        }
-        list.Add(renderable);
-    }
-
-    /// <summary>
-    /// Registers a renderable mesh renderer for batched rendering.
-    /// </summary>
-    public static void RegisterRenderable(MeshRenderer renderable)
-    {
-        Renderables.Add(renderable);
-        RegisterToShaderBatch(renderable);
-    }
-
-    /// <summary>
-    /// Removes a renderable from the rendering system.
-    /// </summary>
-    public static void UnregisterRenderable(MeshRenderer renderable)
-    {
-        Renderables.Remove(renderable);
-
-        int handle = renderable.GetShader()!.GetHandle();
-        if (ShaderBatchRendering.TryGetValue(handle, out var list))
-        {
-            list.Remove(renderable);
-            if (list.Count == 0)
-                ShaderBatchRendering.Remove(handle);
-        }
-    }
-
-    /// <summary>
-    /// Registers a post‑processing effect to be applied after geometry rendering.
-    /// </summary>
-    public static void RegisterPostProcess(PostProcess postProcess) => PostProcesses.Add(postProcess);
-    /// <summary>
-    /// Removes a post‑processing effect from the pipeline.
-    /// </summary>
-    public static void UnregisterPostProcess(PostProcess postProcess) => PostProcesses.Remove(postProcess);
-    
-    /// <summary>
-    /// Registers a shader with the rendering system and assigns automatic uniforms.
-    /// </summary>
-    public static void RegisterShader(Shader shader)
-    {
-        Shaders.Add(shader);
-        shader.RegisterAutoUniform("uView", () => _camera.GetView());
-        shader.RegisterAutoUniform("uProjection", () => _camera.GetProjection());
-    }
-
-    /// <summary>
-    /// Removes a shader from the rendering system.
-    /// </summary>
-    public static void UnregisterShader(Shader shader) => Shaders.Remove(shader);
+    public static void RenderFrame(FrameEventArgs args) => RenderPipelineFrame(args);
 }

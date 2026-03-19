@@ -1,3 +1,4 @@
+using OpenTK.Mathematics;
 using RCS.Components;
 
 namespace RCS;
@@ -6,11 +7,21 @@ namespace RCS;
 /// Represents an entity that can contain and manage a collection of components.
 /// </summary>
 /// <param name="name">The name of the entity.</param>
-public class Entity(string name)
+public class Entity
 {
-    private readonly string _name = name;
-    private readonly List<IComponent> _components = new();
+    readonly string _name;
+    readonly List<IComponent> _components = [];
+    public readonly Transform Transform;// = new Transform(Vector3.Zero, Vector3.Zero, Vector3.One) {Owner = this};
 
+    public Entity(string name)
+    {
+        _name = name;
+        Transform = new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One)
+        {
+            Owner = this
+        };
+    }
+    
     /// <summary>
     /// Gets the name of the entity.
     /// </summary>

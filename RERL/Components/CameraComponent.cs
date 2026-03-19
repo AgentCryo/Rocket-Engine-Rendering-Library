@@ -2,7 +2,7 @@ using OpenTK.Mathematics;
 using RCS;
 using RCS.Components;
 
-namespace RERL.Objects;
+namespace RERL.Components;
 
 /// <summary>
 /// A component that controls a RERL camera using the entity's Transform.
@@ -18,12 +18,14 @@ public class CameraComponent : IComponent
     /// <summary>
     /// Sets the projection matrix using a vertical field of view (in degrees).
     /// </summary>
+    /// <param name="aspect">Screen width / Screen Height.</param>
     public void SetProjectionFovYInDegrees(float fovY, float aspect, float near, float far)
         => Camera.SetProjectionFovYInDegrees(fovY, aspect, near, far);
 
     /// <summary>
     /// Sets the projection matrix using a horizontal field of view (in degrees).
     /// </summary>
+    /// <param name="aspect">Screen width / Screen Height.</param>
     public void SetProjectionFovXInDegrees(float fovX, float aspect, float near, float far)
         => Camera.SetProjectionFovXInDegrees(fovX, aspect, near, far);
 
@@ -39,9 +41,18 @@ public class CameraComponent : IComponent
     /// <summary>
     /// Sets the camera's rotation using Euler angles.
     /// </summary>
-    public CameraComponent SetRotation(Vector3 rotation)
+    public CameraComponent SetRotationInDegrees(Vector3 rotation)
     {
         Camera.SetRotation(Quaternion.FromEulerAngles(rotation));
+        return this;
+    }
+    
+    /// <summary>
+    /// Sets the camera's rotation using quaternions.
+    /// </summary>
+    public CameraComponent SetRotation(Quaternion rotation)
+    {
+        Camera.SetRotation(rotation);
         return this;
     }
 
@@ -52,10 +63,8 @@ public class CameraComponent : IComponent
     /// </summary>
     public void Update(float deltaTime)
     {
-        if (!Owner.TryGetComponent<Transform>(out var transform) || transform == null) return;
-
-        SetPosition(transform.Position);
-        SetRotation(transform.Rotation);
+        SetPosition(Owner.Transform.Position);
+        SetRotation(Owner.Transform.Rotation);
         Camera.UpdateViewMatrix();
     }
 

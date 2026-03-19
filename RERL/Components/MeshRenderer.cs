@@ -1,18 +1,19 @@
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 using RCS;
 using RCS.Components;
+using RERL.ShaderTypes;
 
-namespace RERL.Objects;
+namespace RERL.Components;
 
 /// <summary>
 /// A component that renders a mesh using a shader.
 /// Handles VAO/VBO/IBO creation, uniform setup, and instanced rendering.
 /// </summary>
-public class MeshRenderer : IComponent
+public class MeshRenderer : IComponent, Renderable
 {
     public Entity Owner { get; set; }
+
     public bool AutoRegister { get; set; } = true;
 
     public MeshRenderer SetAutoRegister(bool autoRegister)
@@ -36,6 +37,7 @@ public class MeshRenderer : IComponent
     public MeshRenderer AttachShader(Shader shader, bool buildMeshBuffers = true)
     {
         _shader = shader;
+        _buffersDirty = true;
         if (buildMeshBuffers) BuildMeshBuffers();
         return this;
     }
@@ -46,7 +48,7 @@ public class MeshRenderer : IComponent
     public void OnAdd()
     {
         if (AutoRegister)
-            RERL_Core.RegisterRenderable(this);
+            RenderPipeline.RegisterRenderable(this);
     }
 
     /// <summary>
@@ -89,7 +91,7 @@ public class MeshRenderer : IComponent
         GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, stride, 6 * sizeof(float));
         GL.EnableVertexAttribArray(2);
 
-        _buffersDirty = true;
+        _buffersDirty = false;
         return true;
     }
 
@@ -101,12 +103,9 @@ public class MeshRenderer : IComponent
     {
         if (_mesh == null) throw new Exception("ERR: Mesh is null.");
         if (_shader == null) throw new Exception("ERR: Shader is null.");
-        if (!_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
-
-        if (!Owner.TryGetComponent(out Transform? transform) || transform == null)
-            throw new Exception("ERR: MeshRenderer requires a Transform component.");
-
-        _shader.ApplyUniform("uModel", transform.WorldMatrix);
+        if (_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
+        
+        _shader.ApplyUniform("uModel", Owner.Transform.WorldMatrix);
 
         GL.BindVertexArray(_vao);
         GL.DrawElementsInstanced(

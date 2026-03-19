@@ -1,21 +1,9 @@
-#version 330 core
-
-layout(location = 0) out vec4 FragColor;
-layout(location = 1) out vec4 NormalBuffer;
-
-in vec2 TexCoords;
-
-uniform sampler2D uColor;
-uniform sampler2D uNormal;
-uniform sampler2D uDepth;
-
 void main()
 {
-
-    vec3 norm = texture(uNormal, TexCoords).rgb;
-    float depth = texture(uDepth, TexCoords).r;
-    vec3 color = texture(uColor, TexCoords).rgb;
+    vec4 norm = GetNormal();
+    float depth = GetDepth();
+    vec3 color = GetColor();
     
-    NormalBuffer = norm;
-    FragColor = vec4(color, 1.0);
+    gNormal = norm;
+    gAlbedo = vec4(color, 1.0);
 }

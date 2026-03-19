@@ -2,7 +2,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using RERL.Objects;
+using RERL;
 
 namespace Dev;
 
@@ -40,8 +40,8 @@ public class CameraController
         if (_window.CursorState == CursorState.Grabbed) {
             var delta = _mouseState.Delta;
 
-            _yaw -= delta.X * Sensitivity;
-            _pitch -= delta.Y * Sensitivity;
+            _yaw += delta.X * Sensitivity;
+            _pitch += delta.Y * Sensitivity;
 
             _pitch = MathHelper.Clamp(_pitch, -89f, 89f);
         }
@@ -55,25 +55,32 @@ public class CameraController
 
         #region Keyboard
 
-        Vector3 front = _orientation * -Vector3.UnitZ;
+        Vector3 front = _orientation * Vector3.UnitZ;
         Vector3 right = _orientation *  Vector3.UnitX;
         Vector3 up    = _orientation *  Vector3.UnitY;
 
         _speed = _keyboardState.IsKeyDown(Keys.LeftShift) ? SprintSpeed : OriginalSpeed;
 
         var dt = (float)deltaTime;
+        var move = Vector3.Zero;
+
         if (_keyboardState.IsKeyDown(Keys.W))
-            _position += front * _speed * dt;
+            move += front;
         if (_keyboardState.IsKeyDown(Keys.S))
-            _position -= front * _speed * dt;
+            move -= front;
         if (_keyboardState.IsKeyDown(Keys.A))
-            _position -= right * _speed * dt;
+            move -= right;
         if (_keyboardState.IsKeyDown(Keys.D))
-            _position += right * _speed * dt;
+            move += right;
         if (_keyboardState.IsKeyDown(Keys.Space))
-            _position += up * _speed * dt;
+            move += up;
         if (_keyboardState.IsKeyDown(Keys.LeftControl))
-            _position -= up * _speed * dt;
+            move -= up;
+
+        if (move.LengthSquared > 0)
+            move = Vector3.Normalize(move);
+
+        _position += move * _speed * dt;
 
         #endregion
 

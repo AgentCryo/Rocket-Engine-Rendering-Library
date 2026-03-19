@@ -12,12 +12,12 @@ namespace RCS;
 /// <param name="position">The initial position of the transform.</param>
 /// <param name="rotation">The initial rotation of the transform, in degrees.</param>
 /// <param name="scale">The initial scale of the transform.</param>
-public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : IComponent
+public class Transform(Vector3 position, Quaternion rotation, Vector3 scale) : IComponent
 {
     /// <summary>
-    /// Gets or sets the entity that owns this component.
+    /// The entity that owns this component.
     /// </summary>
-    public Entity Owner { get; set; }
+    public Entity? Owner { get; set; } = null;
 
     /// <summary>
     /// The local position of the transform.
@@ -25,9 +25,16 @@ public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : ICom
     public Vector3 Position = position;
 
     /// <summary>
-    /// The local rotation of the transform, in degrees.
+    /// The local rotation of the transform, as a quaternion.
     /// </summary>
-    public Vector3 Rotation = rotation;
+    public Quaternion Rotation = rotation;
+    public Vector3 EulerAngles
+    {
+        get => Rotation.ToEulerAngles() * (180f / MathF.PI);
+        set => Rotation = Quaternion.FromEulerAngles(
+            value * (MathF.PI / 180f)
+        );
+    }
 
     /// <summary>
     /// The local scale of the transform.
@@ -48,13 +55,8 @@ public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : ICom
     /// Returns a transform with zero position and rotation, and a scale of one.
     /// </summary>
     public static Transform Identity =>
-        new Transform(Vector3.Zero, Vector3.Zero, Vector3.One);
-
-    /// <summary>
-    /// Sets the local position of the transform.
-    /// </summary>
-    /// <param name="position">The new position.</param>
-    /// <returns>The current <see cref="Transform"/> instance.</returns>
+        new Transform(Vector3.Zero, Quaternion.Identity, Vector3.One);
+    
     public Transform SetPosition(Vector3 position)
     {
         Position = position;
@@ -66,28 +68,41 @@ public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : ICom
     /// </summary>
     /// <param name="rotation">The new rotation.</param>
     /// <returns>The current <see cref="Transform"/> instance.</returns>
-    public Transform SetRotation(Vector3 rotation)
+    public Transform SetRotationInDegrees(Vector3 rotation)
+    {
+        Rotation = Quaternion.FromEulerAngles(rotation);
+        return this;
+    }
+    
+    /// <summary>
+    /// Sets the local rotation of the transform, as a quaternion.
+    /// </summary>
+    /// <param name="rotation">The new rotation.</param>
+    /// <returns>The current <see cref="Transform"/> instance.</returns>
+    public Transform SetRotation(Quaternion rotation)
     {
         Rotation = rotation;
         return this;
     }
-
-    /// <summary>
-    /// Sets the local scale of the transform.
-    /// </summary>
-    /// <param name="scale">The new scale.</param>
-    /// <returns>The current <see cref="Transform"/> instance.</returns>
+    
     public Transform SetScale(Vector3 scale)
     {
         Scale = scale;
+        return this;
+    }
+    
+    public Transform SetTransform(Transform transform)
+    {
+        Position = transform.Position;
+        Rotation = transform.Rotation;
+        Scale = transform.Scale;
         return this;
     }
 
     /// <summary>
     /// Gets the forward direction of the transform in world space.
     /// </summary>
-    public Vector3 Forward =>
-        Vector3.Transform(-Vector3.UnitZ, Quaternion.FromEulerAngles(Rotation));
+    public Vector3 Forward => Vector3.Transform(Vector3.UnitZ, Rotation);
 
     /// <summary>
     /// Adds a child transform to this transform.
@@ -102,19 +117,18 @@ public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : ICom
     }
 
     /// <summary>
-    /// Gets the local transformation matrix for this transform.
+    /// Gets the transformation matrix for this transform.
     /// </summary>
-    public Matrix4 LocalMatrix
+    public Matrix4 TransformationMatrix
     {
         get
         {
-            Matrix4 translation = Matrix4.CreateTranslation(Position);
-            Matrix4 rot = Matrix4.CreateRotationX(float.DegreesToRadians(Rotation.X)) *
-                          Matrix4.CreateRotationY(float.DegreesToRadians(Rotation.Y)) *
-                          Matrix4.CreateRotationZ(float.DegreesToRadians(Rotation.Z));
-            Matrix4 scale = Matrix4.CreateScale(Scale);
+            var translation = Matrix4.CreateTranslation(Position);
+            var rot = Matrix4.CreateFromQuaternion(Rotation);
+            var scale = Matrix4.CreateScale(Scale);
 
-            return scale * rot * translation;
+            //return scale * rot * translation;
+            return translation * rot * scale; // new order
         }
     }
 
@@ -127,25 +141,16 @@ public class Transform(Vector3 position, Vector3 rotation, Vector3 scale) : ICom
         get
         {
             if (Parent != null)
-                return LocalMatrix * Parent.WorldMatrix;
+                return Parent.WorldMatrix * TransformationMatrix;
             else
-                return LocalMatrix;
+                return TransformationMatrix;
         }
     }
 
-    /// <summary>
-    /// Called when the scene is first loaded.
-    /// </summary>
+
     public void Load() {}
-
-    /// <summary>
-    /// Called once per frame by the owning entity.
-    /// </summary>
-    /// <param name="deltaTime">Time elapsed since the previous frame.</param>
+    
     public void Update(float deltaTime) {}
-
-    /// <summary>
-    /// Called immediately after the component is added to an entity.
-    /// </summary>
+    
     public void OnAdd() {}
 }

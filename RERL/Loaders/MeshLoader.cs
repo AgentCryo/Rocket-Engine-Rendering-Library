@@ -17,9 +17,9 @@ public static class MeshLoader
     public const string Icosahedron = @"./Models/Icosahedron.obj";
     public const string UVSphere = @"./Models/UVSphere.obj";
     
-    public static Mesh CubeMesh => ParseMesh(Cube)[0].SubMeshes[0];
-    public static Mesh IcosahedronMesh => ParseMesh(Icosahedron)[0].SubMeshes[0];
-    public static Mesh UVSphereMesh => ParseMesh(UVSphere)[0].SubMeshes[0];
+    public static Mesh CubeMesh => ParseObj(Cube)[0].SubMeshes[0];
+    public static Mesh IcosahedronMesh => ParseObj(Icosahedron)[0].SubMeshes[0];
+    public static Mesh UVSphereMesh => ParseObj(UVSphere)[0].SubMeshes[0];
 
     /// <summary>
     /// Parses a mesh file based on its extension.
@@ -28,12 +28,10 @@ public static class MeshLoader
     /// <param name="filename">The file path to load.</param>
     /// <returns>A new <see cref="RERL_Core.Mesh"/> instance.</returns>
     /// <exception cref="Exception">Thrown if the file format is unsupported.</exception>
-    public static List<Model> ParseMesh(string filename)
+    public static List<(Model model, Transform transform)> ParseMesh(string filename)
     {
-        if (filename.EndsWith(".obj"))
-            return ParseObj(filename); 
         if(filename.EndsWith(".glb") || filename.EndsWith(".gltf"))
-            return ParseGltf(filename, filename.EndsWith(".gltf"));
+            return ParseGltf(filename, filename.EndsWith(".glb"));
 
         throw new Exception($"ERR: Unsupported file format '{filename}'.");
     }
@@ -77,7 +75,7 @@ public static class MeshLoader
                 case "o":
                     if (!string.IsNullOrWhiteSpace(currentModel)) {
                         AddSubMesh(ref currentMaterial);
-                        models.Add(new Model(currentModel, [..subMeshes], [..materials.Values], Transform.Identity));
+                        models.Add(new Model(currentModel, [..subMeshes], [..materials.Values]));
                         subMeshes.Clear();
                         materials.Clear();
                         currentMaterial = "";
@@ -137,7 +135,7 @@ public static class MeshLoader
         AddSubMesh(ref currentMaterial);
 
         if (!string.IsNullOrWhiteSpace(currentModel)) {
-            models.Add(new Model(currentModel, [..subMeshes], [..materials.Values], Transform.Identity));
+            models.Add(new Model(currentModel, [..subMeshes], [..materials.Values]));
             subMeshes.Clear();
             materials.Clear();
             currentModel = "";
@@ -180,125 +178,118 @@ public static class MeshLoader
         }
     }
 
-    public static List<Model> ParseGltf(string filePath, bool isGltf)
+    public static List<(Model, Transform)> ParseGltf(string filePath, bool isGlb)
     {
-        (JsonDocument? json, Dictionary<uint, byte[]> bin) data = isGltf ? ExtractFromGltf() : ExtractFromGlb();
-        if(data.json == null) {Logger.Error($"Failed to extract {(isGltf ? new string("gltf") : new string("glb"))} file {filePath}"); return [];}
-        
+        (JsonDocument? json, Dictionary<uint, byte[]> bin) data = !isGlb ? ExtractFromGltf() : ExtractFromGlb();
+        if (data.json == null) {
+            Logger.Error($"Failed to extract {(!isGlb ? new string("gltf") : new string("glb"))} file {filePath}");
+            return [];
+        }
+
         var root = data.json.RootElement;
         Logger.Log(root.GetProperty("accessors").GetArrayLength().ToString());
 
-        List<Model> models = [];
+        List<(Model, Transform)> models = [];
         foreach (var model in root.GetProperty("nodes").EnumerateArray()) {
-            if (!model.TryGetProperty("mesh", out JsonElement meshElement)) continue;
+            if (!model.TryGetProperty("mesh", out var meshIndexElem))
+                continue;
 
+            string name = model.TryGetProperty("name", out var nameElem) ? nameElem.GetString()! : "";
+            
+            List<Mesh> subMeshes = [];
+            var modelMesh = root.GetProperty("meshes")[(int)model.GetProperty("mesh").GetUInt32()];
             #region Transform
 
-            Transform modelTransform = Transform.Identity;
-            if (model.TryGetProperty("matrix", out JsonElement matrixElement))
-            {
-                var modelMat4   = ReadMatrix(matrixElement);
-                var translation = modelMat4.ExtractTranslation();
-                var qRotation = modelMat4.ExtractRotation();
-                var scale       = modelMat4.ExtractScale();
-                Quaternion.ToEulerAngles(qRotation, out var rotation);
-                rotation = new Vector3(float.RadiansToDegrees(rotation.X), float.RadiansToDegrees(rotation.Y), float.RadiansToDegrees(rotation.Z));
-                modelTransform = new Transform(translation, rotation, scale);
-            }
-
-            if (model.TryGetProperty("translation", out JsonElement translationElement)) modelTransform.SetPosition(ReadVector3(translationElement));
-
-            if (model.TryGetProperty("rotation", out JsonElement rotationElement)) {
-                Quaternion.ToEulerAngles(ReadQuaternion(rotationElement), out var rotation);
-                modelTransform.SetRotation((float.RadiansToDegrees(rotation.X), float.RadiansToDegrees(rotation.Y), float.RadiansToDegrees(rotation.Z)));
+            Transform modelTransform;
+            if (model.TryGetProperty("matrix", out var mElem)) {
+                var m = ReadMatrix(mElem);
+                DecomposeTRS(m, out var t, out var r, out var s);
+                modelTransform = new Transform(t, r, s);
+            } else {
+                Vector3 t = model.TryGetProperty("translation", out var tElem) ? ReadVector3(tElem) : Vector3.Zero;
+                Quaternion r = model.TryGetProperty("rotation", out var rElem) ? ReadQuaternion(rElem) : Quaternion.Identity;
+                Vector3 s = model.TryGetProperty("scale", out var sElem) ? ReadVector3(sElem) : Vector3.One;
+                
+                t = new Vector3(t.X, t.Y, t.Z);
+                r = new Quaternion(-r.X, -r.Y, -r.Z, r.W);
+                
+                modelTransform = new Transform(t, r, s);
             }
             
-            if (model.TryGetProperty("scale", out JsonElement scaleElement)) modelTransform.SetScale(ReadVector3(scaleElement));
-            
-            // ReSharper disable once NullableWarningSuppressionIsUsed
-            string name = model.GetProperty("name").GetString()!;
-
             #endregion
             
-            List<Mesh> subMeshes = new();
-            uint meshIndex = meshElement.GetUInt32();
-            var modelMesh = root.GetProperty("meshes")[(int)meshIndex];
-            
-            foreach (var subMesh in modelMesh.GetProperty("primitives").EnumerateArray())
-            {
+            if(name == "lionhead") Logger.Log($"lionhead Pos: {modelTransform.Position} Rot: {modelTransform.Rotation}");
+            if(name == "decals_1st_floor") Logger.Log($"decals_1st_floor Pos: {modelTransform.Position} Rot: {modelTransform.Rotation}");
+
+
+            foreach (var subMesh in modelMesh.GetProperty("primitives").EnumerateArray()) {
                 var attributes = subMesh.GetProperty("attributes");
-                
-                uint posIndex = attributes.GetProperty("POSITION").GetUInt32();
-                uint nrmIndex = attributes.GetProperty("NORMAL").GetUInt32();
-                uint indicesIndex = subMesh.GetProperty("indices").GetUInt32();
+
+                var posIndex = attributes.GetProperty("POSITION").GetUInt32();
+                var nrmIndex = attributes.GetProperty("NORMAL").GetUInt32();
+                var indicesIndex = subMesh.GetProperty("indices").GetUInt32();
 
                 var posAccessor = root.GetProperty("accessors")[(int)posIndex];
                 var nrmAccessor = root.GetProperty("accessors")[(int)nrmIndex];
                 var indicesAccessor = root.GetProperty("accessors")[(int)indicesIndex];
-                
+
                 var posBufferView = root.GetProperty("bufferViews")[posAccessor.GetProperty("bufferView").GetInt32()];
                 var nrmBufferView = root.GetProperty("bufferViews")[nrmAccessor.GetProperty("bufferView").GetInt32()];
-                var indicesBufferView = root.GetProperty("bufferViews")[indicesAccessor.GetProperty("bufferView").GetInt32()];
-                
+                var indicesBufferView =
+                    root.GetProperty("bufferViews")[indicesAccessor.GetProperty("bufferView").GetInt32()];
+
                 // Currently I assume vertex normals are always included in the mesh,
                 // but later on I will make a check to calculate normals on mesh load if it doesn't find any in the file.
-                
-                var vertexPositions = ReadFromByteArray<Vector3>(data.bin[posBufferView.GetProperty("buffer").GetUInt32()], GetByteAreaData(posAccessor, posBufferView));
-                var vertexNormals = ReadFromByteArray<Vector3>(data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()], GetByteAreaData(nrmAccessor, nrmBufferView));
+
+                var vertexPositions = ReadFromByteArray<Vector3>(
+                    data.bin[posBufferView.GetProperty("buffer").GetUInt32()],
+                    GetByteAreaData(posAccessor, posBufferView));
+                var vertexNormals = ReadFromByteArray<Vector3>(
+                    data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()],
+                    GetByteAreaData(nrmAccessor, nrmBufferView));
 
                 var indicesComponentType = indicesAccessor.GetProperty("componentType").GetUInt32();
 
                 uint[] indices = indicesComponentType switch
                 {
                     5123 => // ushort
-                    [..ReadFromByteArray<ushort>(data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()], GetByteAreaData(indicesAccessor, indicesBufferView))],
-                    
+                    [
+                        ..ReadFromByteArray<ushort>(data.bin[indicesBufferView.GetProperty("buffer").GetUInt32()],
+                            GetByteAreaData(indicesAccessor, indicesBufferView))
+                    ],
+
                     5125 => // uint
-                        ReadFromByteArray<uint>(data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()], GetByteAreaData(indicesAccessor, indicesBufferView)),
+                        ReadFromByteArray<uint>(data.bin[indicesBufferView.GetProperty("buffer").GetUInt32()],
+                            GetByteAreaData(indicesAccessor, indicesBufferView)),
                     5121 => // byte
-                    [..ReadFromByteArray<byte>(data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()],GetByteAreaData(indicesAccessor, indicesBufferView))],
-                    
+                    [
+                        ..ReadFromByteArray<byte>(data.bin[indicesBufferView.GetProperty("buffer").GetUInt32()],
+                            GetByteAreaData(indicesAccessor, indicesBufferView))
+                    ],
+
                     _ => [] // Default
                 };
-                
-                subMeshes.Add(new Mesh(BuildVertices(vertexPositions, vertexNormals), [..indices], new Material("__default")));
 
-                continue;
-
-                Vertex[] BuildVertices(Vector3[] positions, Vector3[] normals)
-                {
-                    int count = positions.Length;
-                    Vertex[] verts = new Vertex[count];
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        verts[i] = new Vertex(
-                            positions[i],
-                            normals != null && i < normals.Length ? normals[i] : Vector3.Zero,
-                            Vector2.Zero // UVs later
-                        );
-                    }
-
-                    return verts;
-                }
+                subMeshes.Add(new Mesh(BuildVertices(vertexPositions, vertexNormals), [..indices],
+                    new Material("__default")));
             }
 
-            
             // ReSharper disable once NullableWarningSuppressionIsUsed
-            models.Add(new Model(name, [..subMeshes], [], modelTransform));
+            models.Add((new Model(name, [..subMeshes], []), modelTransform));
             continue;
 
             (uint offset, uint count, uint stride) GetByteAreaData(JsonElement accessor, JsonElement bufferView)
             {
                 uint accessorByteOffset = accessor.TryGetProperty("byteOffset", out var aOff) ? aOff.GetUInt32() : 0;
-                uint bufferViewByteOffset = bufferView.TryGetProperty("byteOffset", out var bvOff) ? bvOff.GetUInt32() : 0;
+                uint bufferViewByteOffset =
+                    bufferView.TryGetProperty("byteOffset", out var bvOff) ? bvOff.GetUInt32() : 0;
                 uint totalByteOffset = bufferViewByteOffset + accessorByteOffset;
                 uint count = accessor.GetProperty("count").GetUInt32();
                 uint stride = bufferView.TryGetProperty("byteStride", out var s) ? s.GetUInt32() : 0;
                 return (totalByteOffset, count, stride);
             }
         }
-        
+
         return models;
 
         #region Extractions
@@ -306,7 +297,7 @@ public static class MeshLoader
         (JsonDocument? json, Dictionary<uint, byte[]>) ExtractFromGltf()
         {
             string jsonText = File.ReadAllText(filePath);
-            
+
             var doc = JsonDocument.Parse(jsonText);
             var jsonRoot = doc.RootElement;
 
@@ -314,10 +305,11 @@ public static class MeshLoader
             uint currentBuffer = 0;
             foreach (var buffer in jsonRoot.GetProperty("buffers").EnumerateArray()) {
                 string binUri = buffer.GetProperty("uri").GetString() ?? "";
-                if (string.IsNullOrEmpty(binUri)){
+                if (string.IsNullOrEmpty(binUri)) {
                     Logger.Error($"Missing buffer URI in glTF file: {filePath}", false);
                     return (null, []);
                 }
+
                 // ReSharper disable once NullableWarningSuppressionIsUsed
                 string binPath = Path.Combine(Path.GetDirectoryName(filePath)!, binUri);
                 byte[] binData = File.ReadAllBytes(binPath);
@@ -327,36 +319,51 @@ public static class MeshLoader
 
             return (doc, buffers);
         }
-        
+
         (JsonDocument? json, Dictionary<uint, byte[]> bin) ExtractFromGlb()
         {
             using var reader = new BinaryReader(File.Open(filePath, FileMode.Open));
 
             #region Header
-        
-            uint magic = reader.ReadUInt32();   // should be 0x46546C67
-            if(magic != 0x46546C67) {Logger.Error($"Wrong \"magic\" variable in file: {filePath}", throwException: false); return (null, []);}
+
+            uint magic = reader.ReadUInt32(); // should be 0x46546C67
+            if (magic != 0x46546C67) {
+                Logger.Error($"Wrong \"magic\" variable in file: {filePath}", throwException: false);
+                return (null, []);
+            }
+
             uint version = reader.ReadUInt32(); // should be v2.0
-            if(version != 2) {Logger.Error($"Unsupported glb version in file: {filePath}", throwException: false); return (null, []);}
-            uint length = reader.ReadUInt32();  // total file length
-        
+            if (version != 2) {
+                Logger.Error($"Unsupported glb version in file: {filePath}", throwException: false);
+                return (null, []);
+            }
+
+            uint length = reader.ReadUInt32(); // total file length
+
             #endregion
 
             #region Json
-        
+
             uint jsonChunkLength = reader.ReadUInt32();
-            uint jsonChunkType   = reader.ReadUInt32(); // should be 0x4E4F534A ("JSON")
-            if(jsonChunkType != 0x4E4F534A) {Logger.Error($"Can't find glb JSON in file: {filePath}", throwException: false); return (null, []);}
+            uint jsonChunkType = reader.ReadUInt32(); // should be 0x4E4F534A ("JSON")
+            if (jsonChunkType != 0x4E4F534A) {
+                Logger.Error($"Can't find glb JSON in file: {filePath}", throwException: false);
+                return (null, []);
+            }
+
             string jsonText = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonChunkLength));
             JsonDocument doc = JsonDocument.Parse(jsonText);
-            
+
             #endregion
 
             #region Binary Buffers
-        
+
             uint binChunkLength = reader.ReadUInt32();
-            uint binChunkType   = reader.ReadUInt32(); // should be 0x004E4942 ("BIN")
-            if(binChunkType != 0x004E4942) {Logger.Error($"Can't find glb BIN in file: {filePath}", throwException: false); return (null, []);}
+            uint binChunkType = reader.ReadUInt32(); // should be 0x004E4942 ("BIN")
+            if (binChunkType != 0x004E4942) {
+                Logger.Error($"Can't find glb BIN in file: {filePath}", throwException: false);
+                return (null, []);
+            }
 
             byte[] binData = reader.ReadBytes((int)binChunkLength);
 
@@ -369,7 +376,6 @@ public static class MeshLoader
 
         #endregion
     }
-
 
     #region JSON Readers
 
@@ -400,15 +406,13 @@ public static class MeshLoader
         return new Vector3(vec3[0], vec3[1], vec3[2]);
     }
     
-    static Quaternion ReadQuaternion(JsonElement vector3Element)
+    static Quaternion ReadQuaternion(JsonElement e)
     {
-        Span<float> q = stackalloc float[4];
-        var i = 0;
-
-        foreach (var v in vector3Element.EnumerateArray())
-            q[i++] = v.GetSingle();
-
-        return new Quaternion(q[0], q[1], q[2], q[3]);
+        var x = e[0].GetSingle();
+        var y = e[1].GetSingle();
+        var z = e[2].GetSingle();
+        var w = e[3].GetSingle();
+        return new Quaternion(x, y, z, w);
     }
 
     #endregion
@@ -433,9 +437,56 @@ public static class MeshLoader
                     Buffer.MemoryCopy(elementPtr, dst + i, elementSize, elementSize);
                 }
             }
-            
         }
 
         return result;
+    }
+    
+    public static Vertex[] BuildVertices(Vector3[] positions, Vector3[] normals)
+    {
+        int count = positions.Length;
+        Vertex[] verts = new Vertex[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            //Vector3 p = positions[i];
+            //Vector3 n = (normals != null && i < normals.Length) ? normals[i] : Vector3.Zero;
+            
+            //// glTF (RH, -Z forward) → engine (LH, +Z forward)
+            //p = new Vector3(p.X, p.Y, -p.Z);
+            //n = new Vector3(n.X, n.Y, -n.Z);
+            
+            //verts[i] = new Vertex(p, n, Vector2.Zero);
+            
+            verts[i] = new Vertex(
+                positions[i],
+                normals != null && i < normals.Length ? normals[i] : Vector3.Zero,
+                Vector2.Zero // UVs later
+            );
+        }
+
+        return verts;
+    }
+    
+    public static void DecomposeTRS(Matrix4 m, out Vector3 translation, out Quaternion rotation, out Vector3 scale)
+    {
+        // Extract translation
+        translation = new Vector3(m.M41, m.M42, m.M43);
+
+        // Extract scale
+        scale = new Vector3(
+            new Vector3(m.M11, m.M12, m.M13).Length,
+            new Vector3(m.M21, m.M22, m.M23).Length,
+            new Vector3(m.M31, m.M32, m.M33).Length
+        );
+
+        // Remove scale from rotation matrix
+        Matrix3 rotMat = new Matrix3(
+            m.M11 / scale.X, m.M12 / scale.X, m.M13 / scale.X,
+            m.M21 / scale.Y, m.M22 / scale.Y, m.M23 / scale.Y,
+            m.M31 / scale.Z, m.M32 / scale.Z, m.M33 / scale.Z
+        );
+
+        rotation = Quaternion.FromMatrix(rotMat);
     }
 }

@@ -9,7 +9,7 @@
         <IsPackable>true</IsPackable>
 
         <PackageId>RocketEngine.RERL</PackageId>
-        <Version>0.1.1</Version>
+        <Version>0.2.0</Version>
         <Authors>AgentCryo</Authors>
         <Description>Rocket Engine Rendering Library</Description>
         <PackageTags>graphics;opengl;opentk;rendering;library</PackageTags>
@@ -25,6 +25,7 @@
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
@@ -39,6 +40,7 @@
         <PackageReference Include="OpenTK.Windowing.Common" Version="4.9.4" />
         <PackageReference Include="OpenTK.Windowing.Desktop" Version="4.9.4" />
         <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.9.4" />
+        <PackageReference Include="StbImageSharp" Version="2.30.15" />
     </ItemGroup>
 
     <!-- Use ProjectReference during normal development -->
@@ -48,7 +50,7 @@
 
     <!-- Use PackageReference ONLY when packing -->
     <ItemGroup Condition="'$(IsPacking)' == 'true'">
-        <PackageReference Include="RCS" Version="0.0.1" />
+        <PackageReference Include="RCS" Version="0.2.0" />
     </ItemGroup>
 
     <ItemGroup>
@@ -56,11 +58,15 @@
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
             <Pack>true</Pack>
             <PackagePath>contentFiles\any\any\Shaders\</PackagePath>
+            <CopyToOutput>true</CopyToOutput>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
         <Content Include="Models\**\*">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
             <Pack>true</Pack>
             <PackagePath>contentFiles\any\any\Models\</PackagePath>
+            <CopyToOutput>true</CopyToOutput>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
@@ -74,4 +80,23 @@
             <PackagePath></PackagePath>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Shaders\DefaultPrelight\" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='EngineDev'">
+        <DefineConstants>ENGINE_DEV</DefineConstants>
+        <Optimize>false</Optimize>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='UserDev'">
+        <DefineConstants>USER_DEV</DefineConstants>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Player'">
+        <DefineConstants>PLAYER_BUILD</DefineConstants>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
 </Project>

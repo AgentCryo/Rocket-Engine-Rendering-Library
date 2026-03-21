@@ -61,7 +61,7 @@ public class Game : GameWindow
         {
             var cube = new Entity("Cube")
                 .AddComponent(new MeshRenderer()
-                    .AttachMesh(MeshLoader.CubeMesh)
+                    .AttachMesh(ModelLoader.CubeMesh)
                     .AttachShader(_fadeTest))
                 .AddComponent<CubeComponent>();
 
@@ -73,7 +73,7 @@ public class Game : GameWindow
         {
             var menger = new Entity("MengerSpongeObject")
                 .AddComponent(new MeshRenderer()
-                    .AttachMesh(MeshLoader.CubeMesh)
+                    .AttachMesh(ModelLoader.CubeMesh)
                     .AttachShader(_mengerSpongeObjectShader));
 
             menger.Transform.Position = new Vector3(5, 0.0f, 0);
@@ -93,7 +93,7 @@ public class Game : GameWindow
             var icosahedron = new Entity("Icosahedron")
                 .AddComponent(new PongComponent(5, 5))
                 .AddComponent(new MeshRenderer()
-                    .AttachMesh(MeshLoader.IcosahedronMesh)
+                    .AttachMesh(ModelLoader.IcosahedronMesh)
                     .AttachShader(RERL_Core.GetPrelightShader()));
 
             MainScene.AddEntity(icosahedron);
@@ -103,7 +103,7 @@ public class Game : GameWindow
         {
             var sphere = new Entity("Sphere")
                 .AddComponent(new MeshRenderer()
-                    .AttachMesh(MeshLoader.UVSphereMesh)
+                    .AttachMesh(ModelLoader.UVSphereMesh)
                     .AttachShader(RERL_Core.GetPrelightShader()));
 
             sphere.Transform.SetPosition((0, 1, 0));
@@ -111,7 +111,7 @@ public class Game : GameWindow
         }
 
         {
-            var glbSponzaModels = MeshLoader.ParseMesh("./Models/glbSponza/NewSponza_Main_glTF_003.gltf");
+            var glbSponzaModels = ModelLoader.ParseMesh("./Models/glbSponza/NewSponza_Main_glTF_003.gltf");
             Dictionary<string, Entity> sponzaEntityLookup = new();
 
             foreach (var m in glbSponzaModels) {

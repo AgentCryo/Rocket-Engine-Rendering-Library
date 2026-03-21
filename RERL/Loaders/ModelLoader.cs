@@ -12,9 +12,9 @@ namespace RERL.Loaders;
 /// them into <see cref="RenderData.Mesh"/> instances. Includes built‑in paths
 /// for common primitive meshes.
 /// </summary>
-public static class MeshLoader
+public static class ModelLoader
 {
-    public struct ModelReturn
+    public record ModelReturn
     {
         public string Name;
         public Model? Model;
@@ -205,58 +205,50 @@ public static class MeshLoader
             entities.TryAdd(entity.GetProperty("name").GetString() ?? "", entity);
         }
 
-        // Build parent lookup
-        Dictionary<int, int?> parentOf = new();
+        #region Parent Lookup
 
-        for (int i = 0; i < entitiesElem.Length; i++)
-            parentOf[i] = null; // default: no parent (root node)
+        var parentOf = Enumerable.Range(0, entitiesElem.Length).ToDictionary(i => i, _ => (int?)null);
 
-        for (int parentIndex = 0; parentIndex < entitiesElem.Length; parentIndex++)
+        for (int p = 0; p < entitiesElem.Length; p++)
         {
-            var node = entitiesElem[parentIndex];
+            if (!entitiesElem[p].TryGetProperty("children", out var children)) continue;
 
-            if (node.TryGetProperty("children", out var childrenElem))
-            {
-                foreach (var child in childrenElem.EnumerateArray())
-                {
-                    int childIndex = child.GetInt32();
-                    parentOf[childIndex] = parentIndex;
-                }
-            }
+            foreach (var c in children.EnumerateArray())
+                parentOf[c.GetInt32()] = p;
         }
+
+        #endregion
         
         List<ModelReturn> parsedEntities = [];
-        foreach (var entity in entities) {
+        foreach (var (name, node) in entities) {
+            var accessors = root.GetProperty("accessors");
+            var bufferViews = root.GetProperty("bufferViews");
             
-            int nodeIndex = Array.FindIndex(entitiesElem, e => 
-                e.GetProperty("name").GetString() == entity.Key);
+            int nodeIndex = Array.FindIndex(entitiesElem, e => e.GetProperty("name").GetString() == name);
             
             int? parentIndex = parentOf[nodeIndex];
-            
-            string parentName = parentIndex.HasValue
-                ? entitiesElem[parentIndex.Value].GetProperty("name").GetString() ?? ""
-                : "";
+            string parentName = parentIndex.HasValue ? entitiesElem[parentIndex.Value].GetProperty("name").GetString() ?? "" : "";
             
             #region Transform
 
             Transform entityTransform;
-            if (entity.Value.TryGetProperty("matrix", out var mElem))
+            if (node.TryGetProperty("matrix", out var mElem))
             {
                 var mGltf = ReadMatrix(mElem);
                 DecomposeTRS(mGltf, out var t, out var r, out var s);
                 entityTransform = new Transform(t, r, s);
             } else {
-                var t = entity.Value.TryGetProperty("translation", out var tElem) ? ReadVector3(tElem) : Vector3.Zero;
-                var r = entity.Value.TryGetProperty("rotation", out var rElem) ? ReadQuaternion(rElem) : Quaternion.Identity;
-                var s = entity.Value.TryGetProperty("scale", out var sElem) ? ReadVector3(sElem) : Vector3.One;
+                var t = node.TryGetProperty("translation", out var tElem) ? ReadVector3(tElem) : Vector3.Zero;
+                var r = node.TryGetProperty("rotation", out var rElem) ? ReadQuaternion(rElem) : Quaternion.Identity;
+                var s = node.TryGetProperty("scale", out var sElem) ? ReadVector3(sElem) : Vector3.One;
                 entityTransform = new Transform(t, r, s);
             }
             
             #endregion
             
-            if (!entity.Value.TryGetProperty("mesh", out var meshIndexElem)) {
+            if (!node.TryGetProperty("mesh", out var meshIndexElem)) {
                 parsedEntities.Add(new ModelReturn{
-                        Name = entity.Key,
+                        Name = name,
                         Model = null,
                         Transform = entityTransform,
                         ParrentName = parentName
@@ -265,27 +257,26 @@ public static class MeshLoader
             }
             
             List<Mesh> subMeshes = [];
-            var modelMesh = root.GetProperty("meshes")[(int)entity.Value.GetProperty("mesh").GetUInt32()];
+            var modelMesh = root.GetProperty("meshes")[(int)node.GetProperty("mesh").GetUInt32()];
             
-            if(entity.Key == "lionhead") Logger.Log($"lionhead Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
-            if(entity.Key == "decals_1st_floor") Logger.Log($"decals_1st_floor Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
+            if(name == "lionhead") Logger.Log($"lionhead Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
+            if(name == "decals_1st_floor") Logger.Log($"decals_1st_floor Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
 
 
             foreach (var subMesh in modelMesh.GetProperty("primitives").EnumerateArray()) {
                 var attributes = subMesh.GetProperty("attributes");
-
+                
                 var posIndex = attributes.GetProperty("POSITION").GetUInt32();
                 var nrmIndex = attributes.GetProperty("NORMAL").GetUInt32();
                 var indicesIndex = subMesh.GetProperty("indices").GetUInt32();
 
-                var posAccessor = root.GetProperty("accessors")[(int)posIndex];
-                var nrmAccessor = root.GetProperty("accessors")[(int)nrmIndex];
-                var indicesAccessor = root.GetProperty("accessors")[(int)indicesIndex];
+                var posAccessor = accessors[(int)posIndex];
+                var nrmAccessor = accessors[(int)nrmIndex];
+                var indicesAccessor = accessors[(int)indicesIndex];
 
-                var posBufferView = root.GetProperty("bufferViews")[posAccessor.GetProperty("bufferView").GetInt32()];
-                var nrmBufferView = root.GetProperty("bufferViews")[nrmAccessor.GetProperty("bufferView").GetInt32()];
-                var indicesBufferView =
-                    root.GetProperty("bufferViews")[indicesAccessor.GetProperty("bufferView").GetInt32()];
+                var posBufferView = bufferViews[posAccessor.GetProperty("bufferView").GetInt32()];
+                var nrmBufferView = bufferViews[nrmAccessor.GetProperty("bufferView").GetInt32()];
+                var indicesBufferView = bufferViews[indicesAccessor.GetProperty("bufferView").GetInt32()];
 
                 // Currently I assume vertex normals are always included in the mesh,
                 // but later on I will make a check to calculate normals on mesh load if it doesn't find any in the file.
@@ -293,6 +284,7 @@ public static class MeshLoader
                 var vertexPositions = ReadFromByteArray<Vector3>(
                     data.bin[posBufferView.GetProperty("buffer").GetUInt32()],
                     GetByteAreaData(posAccessor, posBufferView));
+                
                 var vertexNormals = ReadFromByteArray<Vector3>(
                     data.bin[nrmBufferView.GetProperty("buffer").GetUInt32()],
                     GetByteAreaData(nrmAccessor, nrmBufferView));
@@ -324,7 +316,7 @@ public static class MeshLoader
             }
 
             parsedEntities.Add(new ModelReturn{
-                Name = entity.Key,
+                Name = name,
                 Model = new Model([..subMeshes], []),
                 Transform = entityTransform,
                 ParrentName = parentName
@@ -334,12 +326,18 @@ public static class MeshLoader
             (uint offset, uint count, uint stride) GetByteAreaData(JsonElement accessor, JsonElement bufferView)
             {
                 uint accessorByteOffset = accessor.TryGetProperty("byteOffset", out var aOff) ? aOff.GetUInt32() : 0;
-                uint bufferViewByteOffset =
-                    bufferView.TryGetProperty("byteOffset", out var bvOff) ? bvOff.GetUInt32() : 0;
+                uint bufferViewByteOffset = bufferView.TryGetProperty("byteOffset", out var bvOff) ? bvOff.GetUInt32() : 0;
                 uint totalByteOffset = bufferViewByteOffset + accessorByteOffset;
                 uint count = accessor.GetProperty("count").GetUInt32();
                 uint stride = bufferView.TryGetProperty("byteStride", out var s) ? s.GetUInt32() : 0;
                 return (totalByteOffset, count, stride);
+            }
+            
+            T[] ReadAccessor<T>(JsonElement accessor, JsonElement root, Dictionary<uint, byte[]> buffers) where T : unmanaged
+            {
+                var view = root.GetProperty("bufferViews")[accessor.GetProperty("bufferView").GetInt32()];
+                var buffer = buffers[view.GetProperty("buffer").GetUInt32()];
+                return ReadFromByteArray<T>(buffer, GetByteAreaData(accessor, view));
             }
         }
 
@@ -476,20 +474,12 @@ public static class MeshLoader
         int elementSize = sizeof(T);
         T[] result = new T[byteArea.count];
         
-        fixed (byte* src = &buffer[byteArea.offset]) // Freezes the position of the buffer's memory, then sets src to the first byte at offset.
-        fixed (T* dst = result) {                    // Freezes the position of the result's memory, points to the first element of the T[] we are filling.
-            
-            if (byteArea.stride <= elementSize) {
-                // This should copy from offset to offset + count * elementSize;
-                Buffer.MemoryCopy(src, dst, byteArea.count * elementSize, byteArea.count * elementSize);
-            }
-            else {
-                // This should copy from offset to offset + count * elementSize, each element starts with custom 'stride' bytes apart.
-                // Coping each element individually, skipping padding.
-                for (uint i = 0; i < byteArea.count; i++) {
-                    byte* elementPtr = src + i * byteArea.stride; //Get location (pointer) of the first byte of the section we want to copy.
-                    Buffer.MemoryCopy(elementPtr, dst + i, elementSize, elementSize);
-                }
+        fixed (byte* src = &buffer[byteArea.offset])
+        fixed (T* dst = result) {
+            for (uint i = 0; i < byteArea.count; i++)
+            {
+                byte* elementPtr = src + i * (byteArea.stride == 0 ? elementSize : byteArea.stride);
+                Buffer.MemoryCopy(elementPtr, dst + i, elementSize, elementSize);
             }
         }
 

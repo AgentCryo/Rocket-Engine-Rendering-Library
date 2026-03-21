@@ -6,13 +6,12 @@ float random (vec2 st) {
 
 void main() {
     vec4 norm = GetNormal();
-    float depth = GetDepth();
     vec3 color = GetColor();
     
     gNormal = norm;
-    float d = LinearizeDepth(depth, 0.1, 100.0);
+    float d = LinearizeDepth(gl_FragDepth, 0.1, 100.0);
     d = clamp(d / 100.0, 0.0, 1.0);
     //gAlbedo = vec4(vec3(d*5), 1.0);
-    gAlbedo =  vec4((DecodeNormal(norm) + 1) * 0.5, 1.0);
-    //gAlbedo = vec4(color, 1.0);
+    //gAlbedo =  vec4((DecodeNormal(norm) + 1) * 0.5, 1.0);
+    gAlbedo = vec4(color, 1.0);
 }

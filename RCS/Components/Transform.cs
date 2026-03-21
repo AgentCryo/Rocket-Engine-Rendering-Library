@@ -107,12 +107,21 @@ public class Transform(Vector3 position, Quaternion rotation, Vector3 scale) : I
     /// <summary>
     /// Adds a child transform to this transform.
     /// </summary>
-    /// <param name="child">The child transform to add.</param>
     /// <returns>The current <see cref="Transform"/> instance.</returns>
     public Transform AddChild(Transform child)
     {
         child.Parent = this;
         Children.Add(child);
+        return this;
+    }
+    
+    /// <summary>
+    /// Sets this as a child of a transform.
+    /// </summary>
+    /// <returns>The current <see cref="Transform"/> instance.</returns>
+    public Transform SetParent(Transform parent)
+    {
+        parent.AddChild(this);
         return this;
     }
 
@@ -127,8 +136,7 @@ public class Transform(Vector3 position, Quaternion rotation, Vector3 scale) : I
             var rot = Matrix4.CreateFromQuaternion(Rotation);
             var scale = Matrix4.CreateScale(Scale);
 
-            //return scale * rot * translation;
-            return translation * rot * scale; // new order
+            return scale * rot * translation;
         }
     }
 
@@ -141,7 +149,7 @@ public class Transform(Vector3 position, Quaternion rotation, Vector3 scale) : I
         get
         {
             if (Parent != null)
-                return Parent.WorldMatrix * TransformationMatrix;
+                return TransformationMatrix * Parent.WorldMatrix;
             else
                 return TransformationMatrix;
         }

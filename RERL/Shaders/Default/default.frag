@@ -12,7 +12,6 @@ void main()
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * vec3(1,1,1);
-    gDepth = gl_FragCoord.z;
     gNormal = vec4(norm, 1.0);
     gAlbedo = vec4(vColor * (ambient + diffuse), 1.0);
 }

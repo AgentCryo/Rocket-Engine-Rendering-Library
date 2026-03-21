@@ -2,6 +2,8 @@ in vec3 vColor;
 in vec3 Normal;
 in vec3 FragPos;
 
+flat in int materialInstance;
+
 struct Material {
     vec4 baseColor;
 };
@@ -19,8 +21,7 @@ void main()
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * materials[gl_BaseInstance].baseColor.rgb;
-    gDepth = gl_FragCoord.z;
+    vec3 diffuse = diff * materials[materialInstance].baseColor.rgb;
     gNormal = vec4(norm, 1.0);
     gAlbedo = vec4(vColor * (ambient + diffuse), 1.0);
 }

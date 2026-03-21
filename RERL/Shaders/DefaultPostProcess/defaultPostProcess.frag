@@ -1,7 +1,6 @@
 void main()
 {
     vec4 norm = GetNormal();
-    float depth = GetDepth();
     vec3 color = GetColor();
     
     gNormal = norm;

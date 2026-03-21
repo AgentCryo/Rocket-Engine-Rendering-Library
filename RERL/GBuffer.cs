@@ -5,11 +5,11 @@ namespace RERL;
 
 public struct GBuffer
 {
-    public int Color, Normal, Depth, DepthBuffer;
+    public int Color, Normal, Depth;
     public int FBO;
     public int GetColor() => Color;
     public int GetNormal() => Normal;
-    public int GetColorDepth() => Depth;
+    public int GetDepth() => Depth;
     public int GetFBO() => FBO;
     
     /// <summary>
@@ -37,24 +37,15 @@ public struct GBuffer
         SetupTexture2D(Normal);
         GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
             FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, Normal, 0);
-        
-        // --- Depth ---
-        Depth = GL.GenTexture();
-        GL.BindTexture(TextureTarget.Texture2D, Depth);
-        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f,
-            screenSize.X, screenSize.Y, 0, PixelFormat.Red, PixelType.Float, IntPtr.Zero);
-        SetupTexture2D(Depth);
-        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-            FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, Depth, 0);
 
-        // --- Hardware Depth ---
-        DepthBuffer = GL.GenRenderbuffer();
-        GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, DepthBuffer);
+        // --- Depth ---
+        Depth = GL.GenRenderbuffer();
+        GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, Depth);
         GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer,
             RenderbufferStorage.DepthComponent24, screenSize.X, screenSize.Y);
         GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
             FramebufferAttachment.DepthAttachment,
-            RenderbufferTarget.Renderbuffer, DepthBuffer);
+            RenderbufferTarget.Renderbuffer, Depth);
 
         // Tell OpenGL which color attachments we are drawing to
         DrawBuffersEnum[] attachments = {

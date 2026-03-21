@@ -120,7 +120,6 @@ public class ModelRenderer : IComponent, Renderable
         var commands = new DrawElementsIndirectCommand[_model.SubMeshes.Count];
 
         uint runningIndexOffset = 0;
-        //uint runningVertexOffset = 0;
 
         for (int i = 0; i < _model.SubMeshes.Count; i++)
         {
@@ -132,11 +131,10 @@ public class ModelRenderer : IComponent, Renderable
                 InstanceCount = 1,
                 FirstIndex = runningIndexOffset,
                 BaseVertex = 0,
-                BaseInstance = 0 // Dummy material index, as we have no materials yet.
+                BaseInstance = 0//(uint)i // Material index / vInstance
             };
             
             runningIndexOffset += (uint)mesh.Indices.Length;
-            //runningVertexOffset += (uint)mesh.Vertices.Length;
         }
         
         _indirectBuffer = GL.GenBuffer();
@@ -154,7 +152,7 @@ public class ModelRenderer : IComponent, Renderable
         _materialSSBO = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ShaderStorageBuffer, _materialSSBO);
 
-        GPUMaterial[] dummyMaterials = [ new GPUMaterial {BaseColor = new Vector4(1, 1, 1, 1)} ];
+        GPUMaterial[] dummyMaterials = [ new GPUMaterial {BaseColor = new Vector4(1, 0, 0, 1)} ];
         GL.BufferData(
             BufferTarget.ShaderStorageBuffer,
             dummyMaterials.Length * Marshal.SizeOf<GPUMaterial>(),
@@ -172,7 +170,7 @@ public class ModelRenderer : IComponent, Renderable
         if (_shader == null) { Logger.Warning("ModelRenderer added without a shader."); return; }
 
         _shader.Use();
-        _shader.ApplyUniform("uModel", Owner.Transform.WorldMatrix);
+        _shader.ApplyUniform("uModel", Owner.Transform.WorldMatrix, false);
 
         GL.BindVertexArray(_vao);
 

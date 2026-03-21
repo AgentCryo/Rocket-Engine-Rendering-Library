@@ -3,6 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 using RCS;
 using RCS.Components;
 using RERL.ShaderTypes;
+using static RERL.RenderData;
 
 namespace RERL.Components;
 
@@ -22,12 +23,12 @@ public class MeshRenderer : IComponent, Renderable
         return this;
     }
 
-    RERL_Core.Mesh? _mesh;
+    Mesh? _mesh;
     Shader? _shader;
     int _vao = -1, _vbo = -1, _ibo = -1;
     bool _buffersDirty = false;
 
-    public MeshRenderer AttachMesh(RERL_Core.Mesh mesh)
+    public MeshRenderer AttachMesh(Mesh mesh)
     {
         _mesh = mesh;
         _buffersDirty = false;
@@ -42,7 +43,7 @@ public class MeshRenderer : IComponent, Renderable
         return this;
     }
 
-    public RERL_Core.Mesh? GetMesh() => _mesh!;
+    public Mesh? GetMesh() => _mesh!;
     public Shader? GetShader() => _shader;
 
     public void OnAdd()
@@ -70,7 +71,7 @@ public class MeshRenderer : IComponent, Renderable
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
         GL.BufferData(BufferTarget.ArrayBuffer,
-            _mesh.Value.Vertices.Length * Marshal.SizeOf<RERL_Core.Vertex>(),
+            _mesh.Value.Vertices.Length * Marshal.SizeOf<Vertex>(),
             _mesh.Value.Vertices,
             BufferUsageHint.StaticDraw);
 
@@ -80,7 +81,7 @@ public class MeshRenderer : IComponent, Renderable
             _mesh.Value.Indices.ToArray(),
             BufferUsageHint.StaticDraw);
 
-        int stride = Marshal.SizeOf<RERL_Core.Vertex>();
+        int stride = Marshal.SizeOf<Vertex>();
 
         GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, 0);
         GL.EnableVertexAttribArray(0);
@@ -105,7 +106,7 @@ public class MeshRenderer : IComponent, Renderable
         if (_shader == null) throw new Exception("ERR: Shader is null.");
         if (_buffersDirty) Console.WriteLine("WRN: Rendering an object with outdated mesh buffers.");
         
-        _shader.ApplyUniform("uModel", Owner.Transform.WorldMatrix);
+        _shader.ApplyUniform("uModel", Owner.Transform.WorldMatrix, false);
 
         GL.BindVertexArray(_vao);
         GL.DrawElementsInstanced(

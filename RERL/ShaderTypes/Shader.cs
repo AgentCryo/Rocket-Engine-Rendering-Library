@@ -38,7 +38,7 @@ public class Shader
         CheckCompile(vertexShader, "VERTEX", vertexPath);
 
         string finalFragmentSource =
-            "#version 330 core\n" +
+            "#version 430 core\n" +
             File.ReadAllText("./Shaders/Helpers/gbuffer.glsl") + "\n" +
             File.ReadAllText("./Shaders/Helpers/gbufferSampler.glsl") + "\n" +
             File.ReadAllText("./Shaders/Helpers/common.glsl") + "\n" +
@@ -109,7 +109,7 @@ public class Shader
     /// <param name="value">The value to upload to the GPU.</param>
     /// <param name="silence">If true, missing uniforms are ignored instead of throwing.</param>
     /// <returns>True if the uniform was successfully applied.</returns>
-    public bool ApplyUniform(string name, object? value, bool silence = false)
+    public bool ApplyUniform(string name, object? value, bool transposeMatrix = false, bool silence = false)
     {
         int location = GetUniformLocation(name);
 
@@ -136,7 +136,7 @@ public class Shader
                 GL.Uniform3(location, v3Arr.Length, ref v3Arr[0].X);
                 break;
             case Vector4 v4: GL.Uniform4(location, v4); break;
-            case Matrix4 m4: GL.UniformMatrix4(location, false, ref m4); break;
+            case Matrix4 m4: GL.UniformMatrix4(location, transposeMatrix, ref m4); break;
             case Quaternion q: GL.Uniform4(location, new Vector4(q.X, q.Y, q.Z, q.W)); break;
             default:
                 return silence

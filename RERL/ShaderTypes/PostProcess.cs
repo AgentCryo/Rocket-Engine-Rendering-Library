@@ -50,10 +50,6 @@ public class PostProcess : Shader
         GL.ActiveTexture(TextureUnit.Texture1);
         GL.BindTexture(TextureTarget.Texture2D, gbuffer.Normal);
         ApplyUniform("uNormal", 1);
-
-        GL.ActiveTexture(TextureUnit.Texture2);
-        GL.BindTexture(TextureTarget.Texture2D, gbuffer.Depth);
-        ApplyUniform("uDepth", 2);
         
         GL.BindVertexArray(VAO);
         GL.DrawArrays(PrimitiveType.Triangles, 0, 3);

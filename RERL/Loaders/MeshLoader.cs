@@ -2,17 +2,26 @@ using System.Text;
 using System.Text.Json;
 using OpenTK.Mathematics;
 using RCS;
+using static RERL.RenderData;
 using static RERL.RERL_Core;
 
 namespace RERL.Loaders;
 
 /// <summary>
 /// Provides functionality for loading mesh data from OBJ files and converting
-/// them into <see cref="RERL_Core.Mesh"/> instances. Includes built‑in paths
+/// them into <see cref="RenderData.Mesh"/> instances. Includes built‑in paths
 /// for common primitive meshes.
 /// </summary>
 public static class MeshLoader
 {
+    public struct ModelReturn
+    {
+        public string Name;
+        public Model? Model;
+        public Transform Transform;
+        public string ParrentName;
+    }
+    
     public const string Cube = @"./Models/Cube.obj";
     public const string Icosahedron = @"./Models/Icosahedron.obj";
     public const string UVSphere = @"./Models/UVSphere.obj";
@@ -26,9 +35,9 @@ public static class MeshLoader
     /// Currently, supports only OBJ files.
     /// </summary>
     /// <param name="filename">The file path to load.</param>
-    /// <returns>A new <see cref="RERL_Core.Mesh"/> instance.</returns>
+    /// <returns>A new <see cref="RenderData.Mesh"/> instance.</returns>
     /// <exception cref="Exception">Thrown if the file format is unsupported.</exception>
-    public static List<(Model model, Transform transform)> ParseMesh(string filename)
+    public static List<ModelReturn> ParseMesh(string filename)
     {
         if(filename.EndsWith(".glb") || filename.EndsWith(".gltf"))
             return ParseGltf(filename, filename.EndsWith(".glb"));
@@ -44,7 +53,7 @@ public static class MeshLoader
     /// UV coordinates, and face definitions.
     /// </summary>
     /// <param name="objFilePath">Path to the OBJ file.</param>
-    /// <returns>A populated <see cref="RERL_Core.Mesh"/> instance.</returns>
+    /// <returns>A populated <see cref="RenderData.Mesh"/> instance.</returns>
     /// <exception cref="Exception">
     /// Thrown if the OBJ file contains invalid data or cannot be read.
     /// </exception>
@@ -75,7 +84,7 @@ public static class MeshLoader
                 case "o":
                     if (!string.IsNullOrWhiteSpace(currentModel)) {
                         AddSubMesh(ref currentMaterial);
-                        models.Add(new Model(currentModel, [..subMeshes], [..materials.Values]));
+                        models.Add(new Model([..subMeshes], [..materials.Values]));
                         subMeshes.Clear();
                         materials.Clear();
                         currentMaterial = "";
@@ -135,7 +144,7 @@ public static class MeshLoader
         AddSubMesh(ref currentMaterial);
 
         if (!string.IsNullOrWhiteSpace(currentModel)) {
-            models.Add(new Model(currentModel, [..subMeshes], [..materials.Values]));
+            models.Add(new Model([..subMeshes], [..materials.Values]));
             subMeshes.Clear();
             materials.Clear();
             currentModel = "";
@@ -178,7 +187,7 @@ public static class MeshLoader
         }
     }
 
-    public static List<(Model, Transform)> ParseGltf(string filePath, bool isGlb)
+    public static List<ModelReturn> ParseGltf(string filePath, bool isGlb)
     {
         (JsonDocument? json, Dictionary<uint, byte[]> bin) data = !isGlb ? ExtractFromGltf() : ExtractFromGlb();
         if (data.json == null) {
@@ -188,38 +197,78 @@ public static class MeshLoader
 
         var root = data.json.RootElement;
         Logger.Log(root.GetProperty("accessors").GetArrayLength().ToString());
+        
+        var entitiesArrayEnum = root.GetProperty("nodes").EnumerateArray();
+        var entitiesElem = entitiesArrayEnum.ToArray();
+        Dictionary<string, JsonElement> entities = [];
+        foreach (var entity in entitiesElem) {
+            entities.TryAdd(entity.GetProperty("name").GetString() ?? "", entity);
+        }
 
-        List<(Model, Transform)> models = [];
-        foreach (var model in root.GetProperty("nodes").EnumerateArray()) {
-            if (!model.TryGetProperty("mesh", out var meshIndexElem))
-                continue;
+        // Build parent lookup
+        Dictionary<int, int?> parentOf = new();
 
-            string name = model.TryGetProperty("name", out var nameElem) ? nameElem.GetString()! : "";
+        for (int i = 0; i < entitiesElem.Length; i++)
+            parentOf[i] = null; // default: no parent (root node)
+
+        for (int parentIndex = 0; parentIndex < entitiesElem.Length; parentIndex++)
+        {
+            var node = entitiesElem[parentIndex];
+
+            if (node.TryGetProperty("children", out var childrenElem))
+            {
+                foreach (var child in childrenElem.EnumerateArray())
+                {
+                    int childIndex = child.GetInt32();
+                    parentOf[childIndex] = parentIndex;
+                }
+            }
+        }
+        
+        List<ModelReturn> parsedEntities = [];
+        foreach (var entity in entities) {
             
-            List<Mesh> subMeshes = [];
-            var modelMesh = root.GetProperty("meshes")[(int)model.GetProperty("mesh").GetUInt32()];
+            int nodeIndex = Array.FindIndex(entitiesElem, e => 
+                e.GetProperty("name").GetString() == entity.Key);
+            
+            int? parentIndex = parentOf[nodeIndex];
+            
+            string parentName = parentIndex.HasValue
+                ? entitiesElem[parentIndex.Value].GetProperty("name").GetString() ?? ""
+                : "";
+            
             #region Transform
 
-            Transform modelTransform;
-            if (model.TryGetProperty("matrix", out var mElem)) {
-                var m = ReadMatrix(mElem);
-                DecomposeTRS(m, out var t, out var r, out var s);
-                modelTransform = new Transform(t, r, s);
+            Transform entityTransform;
+            if (entity.Value.TryGetProperty("matrix", out var mElem))
+            {
+                var mGltf = ReadMatrix(mElem);
+                DecomposeTRS(mGltf, out var t, out var r, out var s);
+                entityTransform = new Transform(t, r, s);
             } else {
-                Vector3 t = model.TryGetProperty("translation", out var tElem) ? ReadVector3(tElem) : Vector3.Zero;
-                Quaternion r = model.TryGetProperty("rotation", out var rElem) ? ReadQuaternion(rElem) : Quaternion.Identity;
-                Vector3 s = model.TryGetProperty("scale", out var sElem) ? ReadVector3(sElem) : Vector3.One;
-                
-                t = new Vector3(t.X, t.Y, t.Z);
-                r = new Quaternion(-r.X, -r.Y, -r.Z, r.W);
-                
-                modelTransform = new Transform(t, r, s);
+                var t = entity.Value.TryGetProperty("translation", out var tElem) ? ReadVector3(tElem) : Vector3.Zero;
+                var r = entity.Value.TryGetProperty("rotation", out var rElem) ? ReadQuaternion(rElem) : Quaternion.Identity;
+                var s = entity.Value.TryGetProperty("scale", out var sElem) ? ReadVector3(sElem) : Vector3.One;
+                entityTransform = new Transform(t, r, s);
             }
             
             #endregion
             
-            if(name == "lionhead") Logger.Log($"lionhead Pos: {modelTransform.Position} Rot: {modelTransform.Rotation}");
-            if(name == "decals_1st_floor") Logger.Log($"decals_1st_floor Pos: {modelTransform.Position} Rot: {modelTransform.Rotation}");
+            if (!entity.Value.TryGetProperty("mesh", out var meshIndexElem)) {
+                parsedEntities.Add(new ModelReturn{
+                        Name = entity.Key,
+                        Model = null,
+                        Transform = entityTransform,
+                        ParrentName = parentName
+                    });
+                continue;
+            }
+            
+            List<Mesh> subMeshes = [];
+            var modelMesh = root.GetProperty("meshes")[(int)entity.Value.GetProperty("mesh").GetUInt32()];
+            
+            if(entity.Key == "lionhead") Logger.Log($"lionhead Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
+            if(entity.Key == "decals_1st_floor") Logger.Log($"decals_1st_floor Pos: {entityTransform.Position} Rot: {entityTransform.Rotation}");
 
 
             foreach (var subMesh in modelMesh.GetProperty("primitives").EnumerateArray()) {
@@ -274,8 +323,12 @@ public static class MeshLoader
                     new Material("__default")));
             }
 
-            // ReSharper disable once NullableWarningSuppressionIsUsed
-            models.Add((new Model(name, [..subMeshes], []), modelTransform));
+            parsedEntities.Add(new ModelReturn{
+                Name = entity.Key,
+                Model = new Model([..subMeshes], []),
+                Transform = entityTransform,
+                ParrentName = parentName
+            });
             continue;
 
             (uint offset, uint count, uint stride) GetByteAreaData(JsonElement accessor, JsonElement bufferView)
@@ -290,7 +343,7 @@ public static class MeshLoader
             }
         }
 
-        return models;
+        return parsedEntities;
 
         #region Extractions
 
@@ -383,10 +436,10 @@ public static class MeshLoader
     {
         Span<float> m = stackalloc float[16];
         int i = 0;
-
+        
         foreach (var v in matrixElement.EnumerateArray())
             m[i++] = v.GetSingle();
-
+        
         return new Matrix4(
             m[0],  m[1],  m[2],  m[3],
             m[4],  m[5],  m[6],  m[7],
@@ -394,6 +447,7 @@ public static class MeshLoader
             m[12], m[13], m[14], m[15]
         );
     }
+
     
     static Vector3 ReadVector3(JsonElement vector3Element)
     {
@@ -449,15 +503,6 @@ public static class MeshLoader
 
         for (int i = 0; i < count; i++)
         {
-            //Vector3 p = positions[i];
-            //Vector3 n = (normals != null && i < normals.Length) ? normals[i] : Vector3.Zero;
-            
-            //// glTF (RH, -Z forward) → engine (LH, +Z forward)
-            //p = new Vector3(p.X, p.Y, -p.Z);
-            //n = new Vector3(n.X, n.Y, -n.Z);
-            
-            //verts[i] = new Vertex(p, n, Vector2.Zero);
-            
             verts[i] = new Vertex(
                 positions[i],
                 normals != null && i < normals.Length ? normals[i] : Vector3.Zero,
@@ -470,21 +515,26 @@ public static class MeshLoader
     
     public static void DecomposeTRS(Matrix4 m, out Vector3 translation, out Quaternion rotation, out Vector3 scale)
     {
-        // Extract translation
         translation = new Vector3(m.M41, m.M42, m.M43);
 
-        // Extract scale
-        scale = new Vector3(
-            new Vector3(m.M11, m.M12, m.M13).Length,
-            new Vector3(m.M21, m.M22, m.M23).Length,
-            new Vector3(m.M31, m.M32, m.M33).Length
-        );
+        var x = new Vector3(m.M11, m.M12, m.M13);
+        var y = new Vector3(m.M21, m.M22, m.M23);
+        var z = new Vector3(m.M31, m.M32, m.M33);
 
-        // Remove scale from rotation matrix
-        Matrix3 rotMat = new Matrix3(
-            m.M11 / scale.X, m.M12 / scale.X, m.M13 / scale.X,
-            m.M21 / scale.Y, m.M22 / scale.Y, m.M23 / scale.Y,
-            m.M31 / scale.Z, m.M32 / scale.Z, m.M33 / scale.Z
+        var sx = x.Length;
+        var sy = y.Length;
+        var sz = z.Length;
+
+        var det = Vector3.Dot(x, Vector3.Cross(y, z));
+        if (det < 0)
+            sx = -sx;
+
+        scale = new Vector3(sx, sy, sz);
+
+        var rotMat = new Matrix3(
+            x.X / sx, x.Y / sx, x.Z / sx,
+            y.X / sy, y.Y / sy, y.Z / sy,
+            z.X / sz, z.Y / sz, z.Z / sz
         );
 
         rotation = Quaternion.FromMatrix(rotMat);

@@ -54,7 +54,6 @@ public class Game : GameWindow
         RERL_Core.SetGameWindow(this);
         RERL_Core.Load();
         
-        var glbSponzaModels = MeshLoader.ParseMesh("./Models/glbSponza/NewSponza_Main_glTF_003.gltf");
         
         MainScene = new RCS_Core.Scene("Main");
 
@@ -95,7 +94,7 @@ public class Game : GameWindow
                 .AddComponent(new PongComponent(5, 5))
                 .AddComponent(new MeshRenderer()
                     .AttachMesh(MeshLoader.IcosahedronMesh)
-                    .AttachShader(RERL_Core.GetDefaultShader()));
+                    .AttachShader(RERL_Core.GetPrelightShader()));
 
             MainScene.AddEntity(icosahedron);
         }
@@ -105,24 +104,38 @@ public class Game : GameWindow
             var sphere = new Entity("Sphere")
                 .AddComponent(new MeshRenderer()
                     .AttachMesh(MeshLoader.UVSphereMesh)
-                    .AttachShader(RERL_Core.GetDefaultShader()));
+                    .AttachShader(RERL_Core.GetPrelightShader()));
 
             sphere.Transform.SetPosition((0, 1, 0));
             MainScene.AddEntity(sphere);
         }
 
-        // Sponza models via ModelRenderer
         {
-            int index = 0;
-            foreach (var model in glbSponzaModels)
-            {
-                var sponza = new Entity($"Sponza_{index++}")
-                    .AddComponent(new ModelRenderer()
-                        .AttachModel(model.model)
-                        .AttachShader(RERL_Core.GetDefaultShader()));
-                
-                sponza.Transform.SetTransform(model.transform);
-                MainScene.AddEntity(sponza);
+            var glbSponzaModels = MeshLoader.ParseMesh("./Models/glbSponza/NewSponza_Main_glTF_003.gltf");
+            Dictionary<string, Entity> sponzaEntityLookup = new();
+
+            foreach (var m in glbSponzaModels) {
+                var ent = new Entity(m.Name);
+
+                if (m.Model != null) {
+                    ent.AddComponent(new ModelRenderer()
+                        .AttachModel(m.Model)
+                        .AttachShader(RERL_Core.GetPrelightShader()));
+                }
+
+                ent.Transform.SetTransform(m.Transform);
+
+                sponzaEntityLookup[m.Name] = ent;
+                MainScene.AddEntity(ent);
+            }
+            foreach (var m in glbSponzaModels.Where(m => !string.IsNullOrWhiteSpace(m.ParrentName))) {
+                if (!sponzaEntityLookup.TryGetValue(m.Name, out var child))
+                    continue;
+
+                if (!sponzaEntityLookup.TryGetValue(m.ParrentName, out var parent))
+                    continue;
+
+                child.Transform.SetParent(parent.Transform);
             }
         }
 

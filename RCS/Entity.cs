@@ -11,7 +11,7 @@ public class Entity
 {
     readonly string _name;
     readonly List<IComponent> _components = [];
-    public readonly Transform Transform;// = new Transform(Vector3.Zero, Vector3.Zero, Vector3.One) {Owner = this};
+    public readonly Transform Transform;
 
     public Entity(string name)
     {

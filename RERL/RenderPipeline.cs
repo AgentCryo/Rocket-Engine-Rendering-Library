@@ -57,14 +57,19 @@ public static class RenderPipeline
             }
         }
         
-        //Render all meshes grouped by shader to minimize shader switches. (Light shader loop here)
+        //Render all lights grouped by shader to minimize shader switches. (Light shader loop here)
         
+        // Post-processing pass
+        GL.DepthMask(false);
+        GL.Disable(EnableCap.DepthTest);
         if (PostProcesses.Count != 0) {
             GBuffer input = GeometryFrame;
             for (int p = 0; p < PostProcesses.Count; p++) {
                 input = PostProcesses[p].RenderPostProcess(input, _postProcessingQuad_VAO, (p == PostProcesses.Count - 1));
             }
         }
+        GL.Enable(EnableCap.DepthTest);
+        GL.DepthMask(true);
 
         #region FrameTime
 
